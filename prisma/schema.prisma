@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  books   Book[]
+  authors Author[]
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Author {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  name           String
+  bio            String?
+  photoUrl       String?  @map("photo_url")
+  externalSource String?  @map("external_source")
+  externalId     String?  @map("external_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  books  Book[]
+
+  @@unique([userId, name])
+  @@map("authors")
+}
+
+model Book {
+  id              String     @id @default(uuid())
+  userId          String     @map("user_id")
+  authorId        String     @map("author_id")
+  title           String
+  isbn13          String?
+  isbn10          String?
+  publisher       String?
+  publicationYear Int?       @map("publication_year")
+  coverUrl        String?    @map("cover_url")
+  seriesName      String?    @map("series_name")
+  seriesNumber    Float?     @map("series_number")
+  tags            String[]   @default([])
+  genres          String[]   @default([])
+  source          BookSource
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  author Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, isbn13])
+  @@index([userId])
+  @@index([authorId])
+  @@map("books")
+}
+
+enum BookSource {
+  SCAN
+  MANUAL
+  IMPORT
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
+}
