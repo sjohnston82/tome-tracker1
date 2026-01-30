@@ -39,7 +39,7 @@ export function BarcodeScanner({
     readerRef.current = reader;
 
     reader
-      .decodeFromVideoDevice(undefined, videoRef.current!, (result, error) => {
+      .decodeFromVideoDevice(null, videoRef.current!, (result, error) => {
         if (result) handleScan(result.getText());
         if (error && !(error instanceof NotFoundException)) console.error(error);
       })
