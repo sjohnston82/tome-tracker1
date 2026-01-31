@@ -2,12 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-export function useBook(id: string) {
+export function useBook(id: string | null) {
   const [book, setBook] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBook = useCallback(async () => {
+    if (!id) {
+      setBook(null);
+      setError("Book not found");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`/api/books/${id}`);
@@ -28,6 +35,7 @@ export function useBook(id: string) {
   }, [fetchBook]);
 
   const updateBook = async (updates: any) => {
+    if (!id) return { success: false };
     const res = await fetch(`/api/books/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -40,6 +48,7 @@ export function useBook(id: string) {
   };
 
   const deleteBook = async () => {
+    if (!id) return { success: false };
     const res = await fetch(`/api/books/${id}`, { method: "DELETE" });
     return { success: res.ok };
   };

@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useBook } from "@/lib/hooks/useBook";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export default function BookDetailPage({ params }: { params: { id: string } }) {
+export default function BookDetailPage() {
+  const params = useParams();
+  const bookId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const router = useRouter();
-  const { book, loading, error, updateBook, deleteBook } = useBook(params.id);
+  const { book, loading, error, updateBook, deleteBook } = useBook(bookId ?? null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
