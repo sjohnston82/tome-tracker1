@@ -1,37 +1,180 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tome Tracker PWA
 
-## Getting Started
+A Progressive Web App for scanning and managing your personal book library.
 
-First, run the development server:
+## Features
+
+- 📷 Scan book barcodes with your camera
+- 📚 Organize books by author with series grouping
+- 🔍 Search your library and online databases
+- 📥 Import from Goodreads, StoryGraph, or CSV
+- 📴 Offline viewing of your library
+- 🌙 Dark mode support
+
+## Tech Stack
+
+- **Frontend**: Next.js 14+ (App Router), React, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **Database**: Neon Postgres with Prisma ORM
+- **Auth**: JWT with httpOnly cookies
+- **Email**: Resend
+- **Metadata**: Open Library + Google Books APIs
+
+## Prerequisites
+
+- Node.js 18+
+- npm or yarn
+- Neon Postgres account (free tier works)
+- Resend account for emails (free tier works)
+
+## Local Development Setup
+
+1. Clone the repository:
+   ```bash
+   git clone <repo-url>
+   cd tome-tracker
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Copy environment variables:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+4. Configure environment variables in `.env.local`:
+   ```
+   DATABASE_URL=postgresql://...  # From Neon dashboard
+   JWT_SECRET=your-secure-secret-min-32-chars
+   RESEND_API_KEY=re_...          # From Resend dashboard
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   ```
+
+5. Run database migrations:
+   ```bash
+   npx prisma migrate dev
+   ```
+
+6. (Optional) Seed test data:
+   ```bash
+   npx prisma db seed
+   ```
+
+7. Start development server:
+   ```bash
+   npm run dev
+   ```
+
+8. Open http://localhost:3000
+
+## Deployment to Vercel
+
+1. Push code to GitHub
+2. Connect repository to Vercel
+3. Configure environment variables in Vercel:
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `RESEND_API_KEY`
+   - `NEXT_PUBLIC_APP_URL` (your Vercel URL)
+4. Deploy!
+
+## Testing
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run specific test file
+npm test -- __tests__/lib/isbn.test.ts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Manual Testing Checklist
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [ ] Register new account
+- [ ] Login/logout
+- [ ] Password reset flow
+- [ ] Scan a book barcode
+- [ ] Add book manually
+- [ ] Search online and add
+- [ ] Import CSV file
+- [ ] Edit book details
+- [ ] Delete a book
+- [ ] Test offline mode (disconnect network, browse library)
+- [ ] Test on mobile device
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API Endpoints
 
-## Learn More
+### Auth
+- `POST /api/auth/register` - Create account
+- `POST /api/auth/login` - Login
+- `POST /api/auth/logout` - Logout
+- `POST /api/auth/password-reset/request` - Request reset
+- `POST /api/auth/password-reset/confirm` - Confirm reset
 
-To learn more about Next.js, take a look at the following resources:
+### Account
+- `GET /api/account` - Get current user
+- `DELETE /api/account` - Delete account
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Library
+- `GET /api/library/sync` - Get full library
+- `GET /api/library/check?isbn=...` - Check ownership
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Books
+- `POST /api/books` - Add book
+- `GET /api/books/:id` - Get book
+- `PATCH /api/books/:id` - Update book
+- `DELETE /api/books/:id` - Delete book
 
-## Deploy on Vercel
+### Lookup
+- `GET /api/lookup/isbn/:code` - Lookup by ISBN
+- `GET /api/lookup/search?q=...` - Search online
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Import
+- `POST /api/import/preview` - Preview CSV
+- `POST /api/import/execute` - Execute import
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architecture
+
+```
+Client (PWA)
+    │
+    ├── React UI (Next.js App Router)
+    ├── Service Worker (offline caching)
+    └── IndexedDB (local library cache)
+    │
+    ▼
+Next.js API Routes
+    │
+    ├── Auth (JWT cookies)
+    ├── Library CRUD
+    └── Metadata lookup
+    │
+    ▼
+Neon Postgres (via Prisma)
+    │
+    ▼
+External APIs
+    ├── Open Library
+    ├── Google Books
+    └── Resend
+```
+
+## Offline Behavior
+
+- ✅ View library
+- ✅ Search cached books
+- ✅ Check ownership (cached)
+- ❌ Add new books
+- ❌ Import
+- ❌ Search online
+
+## License
+
+MIT
 

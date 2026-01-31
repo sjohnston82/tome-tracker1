@@ -6,6 +6,7 @@ import { useLibrary } from "@/lib/hooks/useLibrary";
 import { AuthorCard } from "@/components/library/author-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -29,7 +30,9 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <>
+      <OnboardingModal />
+      <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">My Library</h1>
@@ -93,6 +96,7 @@ export default function LibraryPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
