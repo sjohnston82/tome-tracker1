@@ -6,7 +6,7 @@ import { successResponse, errorResponse, handleApiError } from '@/lib/api/respon
 
 export const GET = withAuth(async (request: NextRequest, session) => {
   try {
-    const id = request.nextUrl.pathname.split('/').pop()!
+    const id = request.nextUrl.pathname.split('/').filter(Boolean).pop()!
     const book = await getBookById(session.userId, id)
 
     if (!book) {
@@ -21,7 +21,7 @@ export const GET = withAuth(async (request: NextRequest, session) => {
 
 export const PATCH = withAuth(async (request: NextRequest, session) => {
   try {
-    const id = request.nextUrl.pathname.split('/').pop()!
+    const id = request.nextUrl.pathname.split('/').filter(Boolean).pop()!
     const body = await request.json()
     const input = updateBookSchema.parse(body)
 
@@ -44,7 +44,7 @@ export const PATCH = withAuth(async (request: NextRequest, session) => {
 
 export const DELETE = withAuth(async (request: NextRequest, session) => {
   try {
-    const id = request.nextUrl.pathname.split('/').pop()!
+    const id = request.nextUrl.pathname.split('/').filter(Boolean).pop()!
     const result = await deleteBook(session.userId, id)
 
     if (!result.success) {
