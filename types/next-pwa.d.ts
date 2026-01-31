@@ -1,4 +1,4 @@
 declare module "next-pwa" {
-  const withPWA: <T>(config: T) => T;
+  const withPWA: (options: any) => (config: any) => any;
   export default withPWA;
 }
