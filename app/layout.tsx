@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { OfflineBanner } from "@/components/offline/offline-banner";
 import { getSession } from "@/lib/auth/session";
 import "./globals.css";
 
@@ -43,6 +44,7 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className={inter.className}>
+        <OfflineBanner />
         <Header user={user} />
         <main className="min-h-screen pb-20 sm:pb-8">{children}</main>
         {user && <MobileNav />}

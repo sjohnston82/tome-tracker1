@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BarcodeScanner } from "@/components/scanner/barcode-scanner";
 import { ScanResult } from "@/components/scanner/scan-result";
+import { OfflineGuard } from "@/components/offline/offline-guard";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -100,21 +101,23 @@ export default function ScanPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Scan a book</h1>
-        <p className="text-gray-600">Point your camera at a barcode</p>
+    <OfflineGuard action="scan and add books">
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Scan a book</h1>
+          <p className="text-gray-600">Point your camera at a barcode</p>
+        </div>
+        <BarcodeScanner onScan={handleScan} active={active} />
+        <ScanResult
+          loading={loading}
+          result={result}
+          error={error}
+          onAdd={handleAdd}
+          onViewBook={handleViewBook}
+          onScanAgain={handleScanAgain}
+          existingBookId={existingBookId}
+        />
       </div>
-      <BarcodeScanner onScan={handleScan} active={active} />
-      <ScanResult
-        loading={loading}
-        result={result}
-        error={error}
-        onAdd={handleAdd}
-        onViewBook={handleViewBook}
-        onScanAgain={handleScanAgain}
-        existingBookId={existingBookId}
-      />
-    </div>
+    </OfflineGuard>
   );
 }

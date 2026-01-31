@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 
 export default function LibraryPage() {
   const router = useRouter();
-  const { loading, error, authors, stats, sync } = useLibrary();
+  const { loading, error, authors, stats, sync, isFromCache, lastSynced } = useLibrary();
   const [search, setSearch] = useState("");
   const [groupBySeries, setGroupBySeries] = useState(false);
 
@@ -52,6 +52,12 @@ export default function LibraryPage() {
           </Button>
         </div>
       </div>
+      {isFromCache && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 px-4 py-2 rounded-lg text-sm mb-4">
+          📴 Viewing cached data from{" "}
+          {lastSynced ? new Date(lastSynced).toLocaleString() : "earlier"}
+        </div>
+      )}
       <Input
         type="search"
         placeholder="Search..."
