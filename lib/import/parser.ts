@@ -72,8 +72,8 @@ export async function parseCSVText(
           rows: results.data as Record<string, string>[],
         });
       },
-      error: (error) => {
-        reject(error);
+      error: (error: unknown) => {
+        reject(error instanceof Error ? error : new Error("CSV parse error"));
       },
     });
   });
