@@ -24,6 +24,10 @@ describe('ISBN utilities', () => {
     it('returns null for invalid ISBN', () => {
       expect(normalizeToIsbn13('invalid')).toBeNull()
     })
+
+    it('returns null for invalid ISBN-10 check digit', () => {
+      expect(normalizeToIsbn13('0765311786')).toBeNull()
+    })
   })
 
   describe('isValidIsbn13', () => {

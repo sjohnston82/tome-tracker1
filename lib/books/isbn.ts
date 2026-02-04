@@ -5,7 +5,11 @@ export function normalizeToIsbn13(isbn: string): string | null {
     return cleaned
   }
 
-  if (cleaned.length === 10 && /^\d{9}[\dX]$/i.test(cleaned)) {
+  if (
+    cleaned.length === 10 &&
+    /^\d{9}[\dX]$/i.test(cleaned) &&
+    isValidIsbn10(cleaned)
+  ) {
     return isbn10ToIsbn13(cleaned)
   }
 
@@ -37,6 +41,18 @@ export function isValidIsbn13(isbn: string): boolean {
     sum += i % 2 === 0 ? digit : digit * 3
   }
   return sum % 10 === 0
+}
+
+export function isValidIsbn10(isbn: string): boolean {
+  if (!/^\d{9}[\dX]$/i.test(isbn)) return false
+
+  let sum = 0
+  for (let i = 0; i < 10; i += 1) {
+    const char = isbn[i].toUpperCase()
+    const value = char === 'X' ? 10 : parseInt(char, 10)
+    sum += value * (10 - i)
+  }
+  return sum % 11 === 0
 }
 
 export function extractIsbnFromBarcode(barcode: string): string | null {
