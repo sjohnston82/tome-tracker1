@@ -13,6 +13,11 @@ export default function LibraryPage() {
   const { loading, error, authors, stats, sync, isFromCache, lastSynced } = useLibrary();
   const [search, setSearch] = useState("");
   const [groupBySeries, setGroupBySeries] = useState(false);
+  const reading = authors.flatMap(author => author.books).reduce((counts, book) => {
+    const status = book.readingStatus || 'UNKNOWN';
+    if (status in counts) counts[status as keyof typeof counts]++;
+    return counts;
+  }, { READ: 0, UNREAD: 0, READING: 0, UNKNOWN: 0 });
 
   const filteredAuthors = authors.filter(
     (author) =>
@@ -55,6 +60,11 @@ export default function LibraryPage() {
           </Button>
         </div>
       </div>
+      <section aria-label="Reading progress" className="border rounded-xl p-4 mb-5 bg-white dark:bg-gray-900">
+        <div className="flex flex-wrap justify-between gap-2 text-sm mb-3"><strong>{reading.READ} of {stats?.bookCount ?? 0} books read</strong><span>{reading.READING} currently reading · {reading.UNREAD} unread · {reading.UNKNOWN} unknown</span></div>
+        <progress aria-label="Owned books read" value={reading.READ} max={stats?.bookCount || 1} className="w-full h-2 accent-blue-600" />
+        <button onClick={() => router.push('/series')} className="text-sm text-blue-600 mt-2 hover:underline">Explore series and missing books →</button>
+      </section>
       {isFromCache && (
         <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 px-4 py-2 rounded-lg text-sm mb-4">
           📴 Viewing cached data from{" "}

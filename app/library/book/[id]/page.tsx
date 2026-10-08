@@ -126,6 +126,18 @@ export default function BookDetailPage() {
             )}
           </div>
         </div>
+        <label className="block text-sm mb-5">Reading status
+          <select aria-label="Reading status" className="block border rounded-lg px-3 py-2 mt-2 bg-white dark:bg-gray-900" value={book.readingStatus ?? 'UNKNOWN'} disabled={saving} onChange={async event => {
+            setSaving(true);
+            try {
+              const result = await updateBook({ readingStatus: event.target.value });
+              if (!result.success) window.alert('Unable to update reading status. Please try again.');
+            } catch { window.alert('Unable to update reading status. Please try again.'); }
+            finally { setSaving(false); }
+          }}>
+            <option value="UNKNOWN">Unknown</option><option value="UNREAD">Unread</option><option value="READING">Currently reading</option><option value="READ">Read</option>
+          </select>
+        </label>
         {editing ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

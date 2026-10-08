@@ -10,6 +10,7 @@ export const createBookSchema = z.object({
   coverUrl: z.string().url().optional().nullable(),
   seriesName: z.string().max(200).optional().nullable(),
   seriesNumber: z.number().positive().optional().nullable(),
+  readingStatus: z.enum(['UNKNOWN', 'UNREAD', 'READING', 'READ']).optional(),
   tags: z.array(z.string().max(50)).max(20).default([]),
   genres: z.array(z.string().max(50)).max(20).default([]),
   source: z.enum(['SCAN', 'MANUAL', 'IMPORT']),
@@ -27,6 +28,8 @@ export const updateBookSchema = z.object({
   coverUrl: z.string().url().optional().nullable(),
   seriesName: z.string().max(200).optional().nullable(),
   seriesNumber: z.number().positive().optional().nullable(),
+  readingStatus: z.enum(['UNKNOWN', 'UNREAD', 'READING', 'READ']).optional(),
+  workId: z.string().uuid().optional().nullable(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   genres: z.array(z.string().max(50)).max(20).optional(),
 })

@@ -17,6 +17,9 @@ model User {
 
   books   Book[]
   authors Author[]
+  works   Work[]
+  series  Series[]
+  collectionImports CollectionImport[]
 
   @@map("users")
 }
@@ -56,6 +59,9 @@ model Book {
   coverUrl        String?    @map("cover_url")
   seriesName      String?    @map("series_name")
   seriesNumber    Float?     @map("series_number")
+  workId          String?    @map("work_id")
+  readingStatus   ReadingStatus @default(UNKNOWN) @map("reading_status")
+  importKey       String?    @map("import_key")
   tags            String[]   @default([])
   genres          String[]   @default([])
   source          BookSource
@@ -64,10 +70,14 @@ model Book {
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   author Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  work   Work?  @relation(fields: [workId], references: [id], onDelete: SetNull)
+  contents BookContent[]
 
   @@unique([userId, isbn13])
+  @@unique([userId, importKey])
   @@index([userId])
   @@index([authorId])
+  @@index([workId])
   @@map("books")
 }
 
@@ -85,4 +95,106 @@ model PasswordResetToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("password_reset_tokens")
+}
+
+// A literary work is distinct from its ISBN-specific physical editions.
+// Catalog entries are user-scoped initially, so confirmed corrections are preserved.
+model Work {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  authorName  String   @map("author_name")
+  openLibraryId String? @map("open_library_id")
+  hardcoverId String?  @map("hardcover_id")
+  publicationYear Int? @map("publication_year")
+  importKey String? @map("import_key")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  editions    Book[]
+  seriesEntries SeriesEntry[]
+  containedIn BookContent[]
+
+  @@index([userId, title])
+  @@unique([userId, importKey])
+  @@index([userId, openLibraryId])
+  @@map("works")
+}
+
+model Series {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  externalSource String? @map("external_source")
+  externalId  String?  @map("external_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries     SeriesEntry[]
+
+  @@unique([userId, name])
+  @@map("series")
+}
+
+// One work can belong to multiple series (e.g. a subseries and a universe).
+// Positions are decimal to support entries such as 0.5 without Float rounding.
+model SeriesEntry {
+  id          String   @id @default(uuid())
+  seriesId    String   @map("series_id")
+  workId      String   @map("work_id")
+  position    Decimal? @db.Decimal(8, 3)
+  entryType   SeriesEntryType @default(MAIN) @map("entry_type")
+  isConfirmed Boolean  @default(false) @map("is_confirmed")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  series      Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  work        Work   @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([seriesId, workId])
+  @@index([seriesId, position])
+  @@index([workId])
+  @@map("series_entries")
+}
+
+enum ReadingStatus {
+  UNKNOWN
+  UNREAD
+  READING
+  READ
+}
+
+enum SeriesEntryType {
+  MAIN
+  PREQUEL
+  NOVELLA
+  COMPANION
+  OTHER
+}
+
+// One physical omnibus can contain several works; split editions can share a work.
+model BookContent {
+  bookId String @map("book_id")
+  workId String @map("work_id")
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, workId])
+  @@index([workId])
+  @@map("book_contents")
+}
+
+model CollectionImport {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  dataset String
+  manifest Json
+  report Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dataset])
+  @@map("collection_imports")
 }

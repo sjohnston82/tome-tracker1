@@ -13,6 +13,7 @@ export function Header({ user }: HeaderProps) {
   const navItems = user
     ? [
         { href: "/library", label: "Library" },
+        { href: "/series", label: "Series" },
         { href: "/scan", label: "Scan" },
         { href: "/settings", label: "Settings" },
       ]

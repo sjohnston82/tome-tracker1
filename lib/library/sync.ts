@@ -23,6 +23,7 @@ export interface BookSummary {
   coverUrl: string | null
   seriesName: string | null
   seriesNumber: number | null
+  readingStatus: 'UNKNOWN' | 'UNREAD' | 'READING' | 'READ'
   tags: string[]
   genres: string[]
   source: string
@@ -65,6 +66,7 @@ export async function getLibrarySnapshot(userId: string): Promise<LibrarySnapsho
         coverUrl: book.coverUrl,
         seriesName: book.seriesName,
         seriesNumber: book.seriesNumber,
+        readingStatus: book.readingStatus,
         tags: book.tags,
         genres: book.genres,
         source: book.source,

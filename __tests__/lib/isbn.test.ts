@@ -13,8 +13,8 @@ describe('ISBN utilities', () => {
     })
 
     it('converts ISBN-10 to ISBN-13', () => {
-      expect(normalizeToIsbn13('0765311785')).toBe('9780765311788')
-      expect(isbn10ToIsbn13('0765311785')).toBe('9780765311788')
+      expect(normalizeToIsbn13('076531178X')).toBe('9780765311788')
+      expect(isbn10ToIsbn13('076531178X')).toBe('9780765311788')
     })
 
     it('handles ISBN with dashes', () => {

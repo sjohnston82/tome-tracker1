@@ -33,6 +33,7 @@ export async function createBook(userId: string, input: CreateBookInput) {
       coverUrl: input.coverUrl,
       seriesName: input.seriesName,
       seriesNumber: input.seriesNumber,
+      readingStatus: input.readingStatus ?? 'UNKNOWN',
       tags: input.tags,
       genres: input.genres,
       source: input.source,
@@ -71,6 +72,12 @@ export async function updateBook(
     if (duplicate && duplicate.id !== bookId) {
       return { success: false, error: 'DUPLICATE_ISBN' }
     }
+  }
+
+  // Validate work ownership before any author mutation.
+  if (input.workId) {
+    const work = await prisma.work.findFirst({ where: { id: input.workId, userId }, select: { id: true } })
+    if (!work) return { success: false, error: 'WORK_NOT_FOUND' }
   }
 
   let authorId = existing.authorId
