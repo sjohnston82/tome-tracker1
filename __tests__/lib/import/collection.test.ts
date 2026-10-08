@@ -53,4 +53,14 @@ describe('collection import planning', () => {
     manifest.series.push({ ...manifest.series[0], name: 'A Universe', entries: [{ ...manifest.series[0].entries[0], publicationYear: 2000 }] })
     expect(planCollectionImport(manifest, [], []).issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'WORK_METADATA_CONFLICT', blocking: true })]))
   })
+  it('fills an unknown source year from an overlapping series in either order', () => {
+    for (const years of [[null, 2012], [2012, null]]) {
+      const manifest = collectionFixture()
+      manifest.series[0].entries[0].publicationYear = years[0]
+      manifest.series.push({ ...manifest.series[0], name: 'A Universe', entries: [{ ...manifest.series[0].entries[0], publicationYear: years[1] }] })
+      const plan = planCollectionImport(manifest, [], [])
+      expect(plan.ready).toBe(true)
+      expect(plan.workActions[0].source.publicationYear).toBe(2012)
+    }
+  })
 })

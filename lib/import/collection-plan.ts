@@ -26,7 +26,8 @@ export function planCollectionImport(manifest: CollectionManifest, books: Existi
   const uniqueWorks = new Map<string, CollectionManifest['series'][number]['entries'][number]>()
   for (const series of manifest.series) for (const entry of series.entries) {
     const prior = uniqueWorks.get(entry.sourceKey)
-    if (prior && (collectionIdentity(prior.title, prior.authorName) !== collectionIdentity(entry.title, entry.authorName) || prior.publicationYear !== entry.publicationYear)) issues.push({ code: 'WORK_METADATA_CONFLICT', sourceKey: entry.sourceKey, message: 'Overlapping series disagree about work metadata.', blocking: true })
+    if (prior && (collectionIdentity(prior.title, prior.authorName) !== collectionIdentity(entry.title, entry.authorName) || (prior.publicationYear !== null && entry.publicationYear !== null && prior.publicationYear !== entry.publicationYear))) issues.push({ code: 'WORK_METADATA_CONFLICT', sourceKey: entry.sourceKey, message: 'Overlapping series disagree about work metadata.', blocking: true })
+    else if (prior && prior.publicationYear === null && entry.publicationYear !== null) uniqueWorks.set(entry.sourceKey, { ...prior, publicationYear: entry.publicationYear })
     else if (!prior) uniqueWorks.set(entry.sourceKey, entry)
   }
   const workActions = [...uniqueWorks.values()].map(source => {
