@@ -33,6 +33,7 @@ export async function createBook(userId: string, input: CreateBookInput) {
       coverUrl: input.coverUrl,
       seriesName: input.seriesName,
       seriesNumber: input.seriesNumber,
+      readingStatus: input.readingStatus ?? 'UNKNOWN',
       tags: input.tags,
       genres: input.genres,
       source: input.source,
@@ -81,6 +82,12 @@ export async function updateBook(
       create: { userId, name: input.authorName },
     })
     authorId = author.id
+  }
+
+  // A user may only link an edition to a work in their own catalog.
+  if (input.workId) {
+    const work = await prisma.work.findFirst({ where: { id: input.workId, userId }, select: { id: true } })
+    if (!work) return { success: false, error: 'WORK_NOT_FOUND' }
   }
 
   const { authorName, ...bookData } = input
