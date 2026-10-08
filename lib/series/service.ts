@@ -46,17 +46,17 @@ export async function addSeriesEntry(userId: string, seriesId: string, input: Ne
     prisma.series.findFirst({ where: { id: seriesId, userId }, select: { id: true } }),
     prisma.work.findFirst({ where: { id: input.workId, userId }, select: { id: true } }),
   ])
-  if (!series || !work) return { error: 'NOT_FOUND' as const }
+  if (!series || !work) return { error: 'NOT_FOUND' as const, entry: null }
 
   const existing = await prisma.seriesEntry.findUnique({
     where: { seriesId_workId: { seriesId, workId: input.workId } },
   })
-  if (existing) return { error: 'DUPLICATE' as const }
+  if (existing) return { error: 'DUPLICATE' as const, entry: null }
 
   const entry = await prisma.seriesEntry.create({
     data: { seriesId, workId: input.workId, position: input.position, entryType: input.entryType, isConfirmed: input.isConfirmed },
   })
-  return { entry }
+  return { error: null, entry }
 }
 
 export async function removeSeriesEntry(userId: string, seriesId: string, entryId: string) {
