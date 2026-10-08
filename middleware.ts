@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth/jwt";
 
 // Routes that require authentication
-const protectedRoutes = ["/library", "/settings", "/scan", "/admin"];
+const protectedRoutes = ["/library", "/series", "/settings", "/scan", "/admin"];
 
 // Routes that should redirect to library if already authenticated
 const authRoutes = ["/login", "/register"];

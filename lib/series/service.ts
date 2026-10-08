@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import type { z } from 'zod'
-import { createSeriesSchema, createWorkSchema, createSeriesEntrySchema } from './validation'
+import { createSeriesSchema, createWorkSchema, createSeriesEntrySchema, updateSeriesSchema, updateWorkSchema, updateSeriesEntrySchema } from './validation'
 
 type NewSeries = z.infer<typeof createSeriesSchema>
 type NewWork = z.infer<typeof createWorkSchema>
@@ -12,7 +12,8 @@ export async function listSeries(userId: string) {
     where: { userId },
     include: {
       entries: {
-        include: { work: { include: { editions: { where: { userId }, select: { id: true, readingStatus: true, isbn13: true } } } } },
+        where: { work: { userId } },
+        include: { work: { include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true } } } } } } },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       },
     },
@@ -25,7 +26,8 @@ export async function getSeries(userId: string, id: string) {
     where: { id, userId },
     include: {
       entries: {
-        include: { work: { include: { editions: { where: { userId }, select: { id: true, readingStatus: true, isbn13: true } } } } },
+        where: { work: { userId } },
+        include: { work: { include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true } } } } } } },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       },
     },
@@ -53,10 +55,44 @@ export async function addSeriesEntry(userId: string, seriesId: string, input: Ne
   })
   if (existing) return { error: 'DUPLICATE' as const, entry: null }
 
-  const entry = await prisma.seriesEntry.create({
-    data: { seriesId, workId: input.workId, position: input.position, entryType: input.entryType, isConfirmed: input.isConfirmed },
-  })
-  return { error: null, entry }
+  try {
+    const entry = await prisma.seriesEntry.create({
+      data: { seriesId, workId: input.workId, position: input.position, entryType: input.entryType, isConfirmed: input.isConfirmed },
+    })
+    return { error: null, entry }
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') return { error: 'DUPLICATE' as const, entry: null }
+    throw error
+  }
+}
+
+export async function updateSeries(userId: string, id: string, input: z.infer<typeof updateSeriesSchema>) {
+  const result = await prisma.series.updateMany({ where: { id, userId }, data: input })
+  return result.count ? getSeries(userId, id) : null
+}
+
+export async function updateWork(userId: string, id: string, input: z.infer<typeof updateWorkSchema>) {
+  const result = await prisma.work.updateMany({ where: { id, userId }, data: input })
+  return result.count ? prisma.work.findFirst({ where: { id, userId } }) : null
+}
+
+export async function updateSeriesEntry(userId: string, seriesId: string, id: string, input: z.infer<typeof updateSeriesEntrySchema>) {
+  const result = await prisma.seriesEntry.updateMany({ where: { id, seriesId, series: { userId }, work: { userId } }, data: input })
+  return result.count ? prisma.seriesEntry.findFirst({ where: { id, seriesId, series: { userId } } }) : null
+}
+
+export async function linkEdition(userId: string, workId: string, bookId: string) {
+  const [work, book] = await Promise.all([
+    prisma.work.findFirst({ where: { id: workId, userId }, select: { id: true } }),
+    prisma.book.findFirst({ where: { id: bookId, userId }, select: { id: true } }),
+  ])
+  if (!work || !book) return null
+  return prisma.bookContent.upsert({ where: { bookId_workId: { bookId, workId } }, update: {}, create: { bookId, workId } })
+}
+
+export async function unlinkEdition(userId: string, workId: string, bookId: string) {
+  const result = await prisma.bookContent.deleteMany({ where: { bookId, workId, book: { userId }, work: { userId } } })
+  return result.count > 0
 }
 
 export async function removeSeriesEntry(userId: string, seriesId: string, entryId: string) {

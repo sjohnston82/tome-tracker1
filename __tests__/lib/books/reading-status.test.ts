@@ -24,13 +24,14 @@ describe('book reading status and work ownership', () => {
   it('does not link a book to another user\'s work', async () => {
     db.book.findFirst.mockResolvedValue({ id: 'book-1', userId: 'owner', authorId: 'author-1', isbn13: null })
     db.work.findFirst.mockResolvedValue(null)
-    const result = await updateBook('owner', 'book-1', { workId })
+    const result = await updateBook('owner', 'book-1', { workId, authorName: 'Changed author' })
     expect(result.error).toBe('WORK_NOT_FOUND')
     expect(db.work.findFirst).toHaveBeenCalledWith({
       where: { id: workId, userId: 'owner' },
       select: { id: true },
     })
     expect(db.book.update).not.toHaveBeenCalled()
+    expect(db.author.upsert).not.toHaveBeenCalled()
   })
 
   it('persists a valid reading status', async () => {

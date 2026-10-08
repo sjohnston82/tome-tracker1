@@ -34,6 +34,9 @@ export function handleApiError(error: unknown) {
     );
   }
 
+  if (error instanceof SyntaxError) return errorResponse('VALIDATION_ERROR', 'Invalid JSON', 400)
+  if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') return errorResponse('DUPLICATE', 'This record already exists', 409)
+
   if (error instanceof Error) {
     if (error.message === "Unauthorized") {
       return errorResponse("UNAUTHORIZED", "Authentication required", 401);

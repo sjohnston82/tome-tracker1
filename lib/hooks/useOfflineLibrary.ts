@@ -61,6 +61,7 @@ export function useOfflineLibrary() {
           coverUrl: book.coverUrl,
           seriesName: book.seriesName,
           seriesNumber: book.seriesNumber,
+          readingStatus: book.readingStatus ?? 'UNKNOWN',
         }))
       );
 

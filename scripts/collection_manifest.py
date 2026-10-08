@@ -123,7 +123,8 @@ def build_manifest(xlsx, docx):
             owned_keys = [b['sourceKey'] for b in candidates] if len(candidates) == 1 else []
             declared = declared_owned.casefold().startswith('owned')
             if len(candidates) > 1 or declared != bool(owned_keys):
-                review.append({'code': 'OWNERSHIP_CONFLICT', 'sourceKey': work_key, 'message': f'Checklist says {declared_owned}; Excel matched {len(candidates)} physical books. Ownership remains derived from Excel.', 'seriesName': name, 'title': title, 'candidateKeys': [b['sourceKey'] for b in candidates]})
+                suggested = candidates or [b for b in books if normalize(b['seriesName'] or '') == normalize(name)]
+                review.append({'code': 'OWNERSHIP_CONFLICT', 'sourceKey': work_key, 'message': f'Checklist says {declared_owned}; Excel matched {len(candidates)} physical books. Ownership remains derived from Excel.', 'seriesName': name, 'title': title, 'candidateKeys': [b['sourceKey'] for b in suggested]})
             if not year:
                 review.append({'code': 'UNKNOWN_PUBLICATION', 'sourceKey': work_key, 'message': 'No publication year supplied; forthcoming information is unverified.', 'seriesName': name, 'title': title})
             if '\ufffd' in title:
@@ -134,6 +135,18 @@ def build_manifest(xlsx, docx):
                             'entryType': entry_type, 'ownedSourceKeys': owned_keys, 'sourceOwnership': declared_owned,
                             'source': {'file': 'Book_Collection_Series_Checklist.docx', 'heading': heading, 'row': row_number}})
         series_records.append({'name': name, 'sourceKey': key('series', name), 'entries': entries})
+    # Complete/unaudited series omitted from the incomplete-series Word checklist
+    # still appear from the Excel catalog. Their order/completeness is unknown.
+    checklist_names = {normalize(s['name']) for s in series_records}
+    extra_series = {}
+    for book in books:
+        name = book['seriesName']
+        if not name or normalize(name) in checklist_names:
+            continue
+        if name not in extra_series:
+            extra_series[name] = {'name': name, 'sourceKey': key('series', name), 'entries': []}
+        extra_series[name]['entries'].append({'sourceKey': key('work', book['title'], book['authorName']), 'title': book['title'], 'authorName': book['authorName'], 'publicationYear': None, 'position': None, 'entryType': 'OTHER', 'ownedSourceKeys': [book['sourceKey']], 'sourceOwnership': 'Owned in authoritative spreadsheet', 'source': book['source']})
+    series_records.extend(extra_series.values())
     # Years on owned editions come only from exact checklist matches. Conflicting years remain unavailable.
     years = collections.defaultdict(set)
     for series in series_records:

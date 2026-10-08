@@ -74,6 +74,12 @@ export async function updateBook(
     }
   }
 
+  // Validate work ownership before any author mutation.
+  if (input.workId) {
+    const work = await prisma.work.findFirst({ where: { id: input.workId, userId }, select: { id: true } })
+    if (!work) return { success: false, error: 'WORK_NOT_FOUND' }
+  }
+
   let authorId = existing.authorId
   if (input.authorName) {
     const author = await prisma.author.upsert({
@@ -82,12 +88,6 @@ export async function updateBook(
       create: { userId, name: input.authorName },
     })
     authorId = author.id
-  }
-
-  // A user may only link an edition to a work in their own catalog.
-  if (input.workId) {
-    const work = await prisma.work.findFirst({ where: { id: input.workId, userId }, select: { id: true } })
-    if (!work) return { success: false, error: 'WORK_NOT_FOUND' }
   }
 
   const { authorName, ...bookData } = input

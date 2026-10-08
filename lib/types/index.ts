@@ -22,6 +22,7 @@ export interface Book {
   coverUrl: string | null;
   seriesName: string | null;
   seriesNumber: number | null;
+  readingStatus?: 'UNKNOWN' | 'UNREAD' | 'READING' | 'READ';
   tags: string[];
   genres: string[];
   source: "SCAN" | "MANUAL" | "IMPORT";
