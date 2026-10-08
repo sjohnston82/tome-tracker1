@@ -1,0 +1,24 @@
+name: Validate Tome Tracker
+on:
+  pull_request:
+  push:
+    branches: [feature/series-tracking-v2]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma validate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+      - run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+      - run: npx vitest run __tests__/lib/series/service.test.ts
+      - run: npx tsc --noEmit
