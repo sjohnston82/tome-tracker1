@@ -53,4 +53,17 @@ describe('collection import against disposable PostgreSQL', () => {
     await expect(applyCollectionImport(owner, manifest)).rejects.toThrow()
     expect(await prisma.book.count()).toBe(before)
   })
+
+  it('reconciles a 245-edition import and reruns without creating duplicates', async () => {
+    const user = await prisma.user.create({ data: { email: `large-${crypto.randomUUID()}@example.test`, passwordHash: 'test-only' } })
+    try {
+      const manifest = collectionFixture()
+      manifest.books = Array.from({ length: 245 }, (_, index) => ({ ...manifest.books[0], sourceKey: 'book:' + index.toString(16).padStart(64, '0'), title: `Synthetic physical edition ${index}`, readingStatus: index < 150 ? 'READ' as const : index === 150 ? 'READING' as const : 'UNREAD' as const }))
+      manifest.expected = { owned: 245, statuses: { READ: 150, READING: 1, UNREAD: 94, UNKNOWN: 0 } }
+      manifest.series[0].entries[0].ownedSourceKeys = [manifest.books[0].sourceKey]
+      expect(await applyCollectionImport(user.id, manifest)).toMatchObject({ actualOwned: 245, actualStatuses: manifest.expected.statuses, reconciled: true })
+      expect((await applyCollectionImport(user.id, manifest)).summary.newOwned).toBe(0)
+      expect(await prisma.book.count({ where: { userId: user.id } })).toBe(245)
+    } finally { await prisma.user.delete({ where: { id: user.id } }) }
+  }, 60000)
 })
