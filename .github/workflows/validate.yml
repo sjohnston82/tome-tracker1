@@ -23,6 +23,12 @@ jobs:
       - run: npm run test:unit
       - run: npx tsc --noEmit
       - run: python -m unittest discover -s scripts/tests
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/tome_test
+          JWT_SECRET: ci-only-secret-at-least-32-characters-long
+          RESEND_API_KEY: re_ci_placeholder_not_a_secret
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
   database:
     runs-on: ubuntu-latest
     timeout-minutes: 15
