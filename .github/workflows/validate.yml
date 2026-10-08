@@ -13,12 +13,12 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: npx prisma validate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
       - run: npx prisma generate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
-      - run: npx vitest run __tests__/lib/series/service.test.ts __tests__/lib/books/reading-status.test.ts
+      - run: npm run test:unit
       - run: npx tsc --noEmit

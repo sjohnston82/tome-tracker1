@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
+    "test:unit": "vitest run __tests__/lib __tests__/auth __tests__/schema.test.ts",
+    "test:integration": "vitest run __tests__/api",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "db:migrate": "prisma migrate dev",
