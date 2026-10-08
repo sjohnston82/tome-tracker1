@@ -44,4 +44,8 @@ An entry is owned if the current user's physical editions are linked to it, dire
 - `RUN_DATABASE_TESTS=true npx vitest run __tests__/database`: guarded, localhost-only disposable PostgreSQL tests for migrations, reruns, corrections, ownership, user isolation and 245-edition reconciliation.
 - The older `npm run test:integration` HTTP tests additionally require a running application and configured test database; they are separate from the unit suite.
 
-GitHub Actions runs unit/TypeScript/Python checks and a PostgreSQL service for database tests. Local Windows Prisma/Vitest execution encountered sandbox `EPERM` path-resolution failures, so Linux CI is the source of executed Node test results for this development session. No production migration or import has been performed.
+GitHub Actions runs unit/TypeScript/Python/build checks, a PostgreSQL service for database tests, and an application server for HTTP tests. The HTTP suite covers collection import, series access isolation, edition links, reading-status sync, and existing account, import, registration and login endpoints. Password-reset email delivery, live external metadata providers, camera scanning and browser visual checks have not been exercised in this session.
+
+The actual private manifest passed the application's Zod validation and pure import planner: 245 new physical editions, 434 unique works, 71 series, 436 entries and ten nonblocking source-review items. A known publication year can fill an unknown year across overlapping source memberships; two different known years require review. This was a dry run, without a database connection. Database reconciliation and rerun tests use synthetic 245-edition fixtures, not the personal collection.
+
+Local Windows Prisma/Vitest execution encountered sandbox `EPERM` path-resolution failures, so Linux CI is the source of executed Node test results for this development session. No production migration or import has been performed.
