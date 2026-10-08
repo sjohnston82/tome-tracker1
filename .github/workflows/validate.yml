@@ -48,6 +48,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/tome_test
       RUN_DATABASE_TESTS: 'true'
+      JWT_SECRET: ci-only-secret-at-least-32-characters-long
+      RESEND_API_KEY: re_ci_placeholder_not_a_secret
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      COLLECTION_IMPORT_ENABLED: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -57,3 +61,17 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx prisma migrate deploy
       - run: npx vitest run __tests__/database
+      - name: Start disposable test application
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/tome-dev.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/login > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/tome-dev.log
+          exit 1
+      - name: Verify HTTP flows and existing library features
+        run: npx vitest run __tests__/http __tests__/api/account.test.ts __tests__/api/import.test.ts __tests__/api/auth/login.test.ts __tests__/api/auth/register.test.ts --no-file-parallelism --hookTimeout 30000 --testTimeout 30000
+      - name: Test application diagnostics
+        if: failure()
+        run: tail -n 150 /tmp/tome-dev.log || true
