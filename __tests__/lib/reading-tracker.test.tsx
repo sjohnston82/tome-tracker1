@@ -29,7 +29,7 @@ describe('reading progress interface', () => {
     render(<ReadingTracker bookId="unread" status="UNREAD" onChanged={changed} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Start reading' }))
     await waitFor(() => expect(changed).toHaveBeenCalledOnce())
-    expect(JSON.parse(fetcher.mock.calls[1][1]!.body as string)).toEqual({ action: 'start', page: 0, totalPages: null })
+    expect(JSON.parse(fetcher.mock.calls.find(([, init]) => init?.method === 'POST')![1]!.body as string)).toEqual({ action: 'start', page: 0, totalPages: null })
   })
   it('logs a stopping page, timestamp and note without crediting the baseline', async () => {
     const changed = vi.fn().mockResolvedValue(undefined)
@@ -45,6 +45,6 @@ describe('reading progress interface', () => {
     fireEvent.change(screen.getByLabelText('Reading note (optional)'), { target: { value: 'Chapter five' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save progress' }))
     await screen.findByText('6 pages logged since your starting point')
-    expect(JSON.parse(fetcher.mock.calls[1][1]!.body as string)).toMatchObject({ action: 'log', page: 230, note: 'Chapter five', finish: false, requestId: expect.any(String), occurredAt: expect.stringMatching(/Z$/) })
+    expect(JSON.parse(fetcher.mock.calls.find(([, init]) => init?.method === 'POST')![1]!.body as string)).toMatchObject({ action: 'log', page: 230, note: 'Chapter five', finish: false, requestId: expect.any(String), occurredAt: expect.stringMatching(/Z$/) })
   })
 })

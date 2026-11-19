@@ -1,6 +1,6 @@
 const separator = /\s+(?:and|&)\s+|\s*;\s*|\s*\/\s*/i
 
-function authorPeople(name: string): string[] {
+export function authorPeople(name: string): string[] {
   const parts = name.split(separator).map(value => value.trim())
   // Also accept the compact surname-first form this formatter emits.
   if (parts.length > 1 && name.split(',').length === 2) {

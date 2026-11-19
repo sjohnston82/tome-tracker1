@@ -1,0 +1,48 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ReadingTracker } from '@/components/library/reading-tracker'
+const suggestion = { suggested: 480, options: [{ pages: 480, title: 'A Novel', source: 'Open Library', exactIsbn: true }], message: 'Page count matched your ISBN.', warnings: [] }
+const active = { id: 'session', baselinePage: 224, totalPages: 512, startedAt: null, trackedAt: '2026-11-19T15:00:00Z', finishedAt: null, version: 0, logs: [] }
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+describe('page-count draft prefilling', () => {
+  it('prefills an untouched new read from an ISBN match without saving anything', async () => {
+    const fetcher = vi.fn(async (url: string) => ({ ok: true, json: async () => url.includes('page-count') ? suggestion : { session: null } }))
+    vi.stubGlobal('fetch', fetcher)
+    render(<ReadingTracker bookId="book" status="UNREAD" onChanged={vi.fn()} />)
+    await screen.findByText(suggestion.message)
+    expect((screen.getByLabelText('Total pages (optional)') as HTMLInputElement).value).toBe('480')
+    expect(fetcher.mock.calls.every(([url]) => typeof url === 'string')).toBe(true)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+  it('does not replace a manually typed count when a slow lookup finishes', async () => {
+    let resolve!: (value: unknown) => void
+    const deferred = new Promise(done => { resolve = done })
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('page-count') ? deferred : { ok: true, json: async () => ({ session: null }) }))
+    render(<ReadingTracker bookId="book" status="UNREAD" onChanged={vi.fn()} />)
+    await screen.findByRole('button', { name: 'Start reading' })
+    fireEvent.change(screen.getByLabelText('Total pages (optional)'), { target: { value: '512' } })
+    resolve({ ok: true, json: async () => suggestion })
+    await screen.findByText(suggestion.message)
+    expect((screen.getByLabelText('Total pages (optional)') as HTMLInputElement).value).toBe('512')
+  })
+  it('keeps a saved edition length and avoids unnecessary metadata lookups', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ session: active }) })
+    vi.stubGlobal('fetch', fetcher)
+    render(<ReadingTracker bookId="book" status="READING" onChanged={vi.fn()} />)
+    await screen.findByText('Page 224 of 512')
+    expect((screen.getByLabelText('Total pages (optional)') as HTMLInputElement).value).toBe('512')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it('requires explicit selection to fill an existing unknown length', async () => {
+    const fetcher = vi.fn(async (url: string) => ({ ok: true, json: async () => url.includes('page-count') ? suggestion : { session: { ...active, totalPages: null } } }))
+    vi.stubGlobal('fetch', fetcher)
+    render(<ReadingTracker bookId="book" status="READING" onChanged={vi.fn()} />)
+    await screen.findByText('Page 224')
+    fireEvent.click(screen.getByText('Page settings'))
+    const choice = await screen.findByRole('button', { name: 'Use 480 pages' })
+    expect((screen.getByLabelText('Total pages (optional)') as HTMLInputElement).value).toBe('')
+    fireEvent.click(choice)
+    expect((screen.getByLabelText('Total pages (optional)') as HTMLInputElement).value).toBe('480')
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+  })
+})

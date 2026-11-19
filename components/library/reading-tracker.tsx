@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { readingProgress, type ProgressEntry, type ProgressSession } from '@/lib/reading/progress'
+import type { PageCountResult } from '@/lib/metadata/page-counts'
 
 const localTime = (date = new Date()) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 const displayTime = (value: string) => new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
@@ -26,6 +27,12 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
   const [note, setNote] = useState('')
   const [finish, setFinish] = useState(false)
   const pending = useRef({ signature: '', id: '' })
+  const totalTouched = useRef(false)
+  const baselineRef = useRef(baseline)
+  baselineRef.current = baseline
+  const [pageCounts, setPageCounts] = useState<PageCountResult | null>(null)
+  const [lookingUpPages, setLookingUpPages] = useState(false)
+  const [pageLookupAttempt, setPageLookupAttempt] = useState(0)
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine)
@@ -35,22 +42,54 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
   useEffect(() => {
     if (!online) { setLoading(false); return }
     const controller = new AbortController()
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setPageCounts(null)
     ;(async () => {
       try {
         const response = await fetch(`/api/books/${bookId}/reading`, { cache: 'no-store', signal: controller.signal })
         const data = await response.json()
         if (!response.ok) throw new Error(data.message ?? 'Unable to load the reading log.')
-        if (!controller.signal.aborted) { setSession(data.session); setTotal(data.session?.totalPages?.toString() ?? ''); setBaseline(data.session?.baselinePage?.toString() ?? (status === 'READING' ? '' : '0')) }
+        if (!controller.signal.aborted) { totalTouched.current = false; setSession(data.session); setTotal(data.session?.totalPages?.toString() ?? ''); setBaseline(data.session?.baselinePage?.toString() ?? (status === 'READING' ? '' : '0')) }
       } catch (error) { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : 'Unable to load the reading log.') }
       finally { if (!controller.signal.aborted) setLoading(false) }
     })()
     return () => controller.abort()
   }, [bookId, reload, online])
 
+  useEffect(() => {
+    if (loading || !online || session?.totalPages != null || (!session && !['UNREAD', 'READING'].includes(status))) return
+    const controller = new AbortController()
+    setLookingUpPages(true)
+    ;(async () => {
+      try {
+        const response = await fetch(`/api/books/${bookId}/page-count`, { signal: controller.signal })
+        const data: PageCountResult = await response.json()
+        if (!response.ok) throw new Error('Page count lookup is unavailable. You can still enter a count manually.')
+        if (controller.signal.aborted) return
+        setPageCounts(data)
+        // Prefill only an untouched draft for a new session; never change saved settings.
+        if (!session && !totalTouched.current && data.suggested != null && data.suggested >= Number(baselineRef.current || 0)) setTotal(String(data.suggested))
+      } catch {
+        if (!controller.signal.aborted) setPageCounts({ suggested: null, options: [], message: 'Page count lookup is unavailable. Enter it manually or try again.', warnings: [] })
+      } finally { if (!controller.signal.aborted) setLookingUpPages(false) }
+    })()
+    return () => controller.abort()
+  }, [bookId, loading, online, status, session?.id, session?.totalPages, pageLookupAttempt])
+
+  const setDraftTotal = (value: string) => { totalTouched.current = true; setTotal(value) }
+  const pageCountHelp = session?.totalPages != null ? null : <div className="text-xs text-gray-500 space-y-2">
+    {lookingUpPages ? <p role="status">Looking up edition page counts…</p> : pageCounts && <>
+      <p>{pageCounts.message}</p>
+      {pageCounts.warnings?.map(warning => <p key={warning} className="text-amber-700">{warning}</p>)}
+      {!!pageCounts.options?.length && <ul className="max-h-40 overflow-y-auto space-y-2">{pageCounts.options.map((option, index) => <li key={index} className="flex flex-wrap items-baseline gap-x-2"><button type="button" className="text-blue-600 underline" disabled={busy} onClick={() => setDraftTotal(String(option.pages))}>Use {option.pages} pages</button><span>{option.source}{option.exactIsbn ? ' · ISBN match' : ' · Edition suggestion'}{option.publisher ? ` · ${option.publisher}` : ''}{option.year ? ` · ${option.year}` : ''}{option.isbn ? ` · ISBN ${option.isbn}` : ''}</span></li>)}</ul>}
+      <p>Suggestions are saved only when you start reading or save page settings. You can always edit the count.</p>
+      <button type="button" className="text-blue-600 underline" disabled={busy} onClick={() => setPageLookupAttempt(value => value + 1)}>Retry page count lookup</button>
+    </>}
+  </div>
+
   const progress = session ? readingProgress(session) : null
   const save = async (body: Record<string, unknown>) => {
     if (!online || busy) return
+    if (body.action === 'start' || body.action === 'settings') totalTouched.current = true
     setBusy(true); setError(''); setNotice('')
     try {
       const response = await fetch(`/api/books/${bookId}/reading`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -96,11 +135,12 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
         <ol className="mt-3 space-y-3 max-h-72 overflow-y-auto">{[...session.logs].reverse().slice(0, 30).map(entry => <li key={entry.id} className="border-b pb-2"><div>Page {entry.page} · {displayTime(entry.occurredAt)}{entry.isCompletion && ' · Finished'}</div>{entry.note && <p className="text-gray-500 break-words">{entry.note}</p>}<div className="flex flex-wrap gap-3 mt-1"><button disabled={busy} className="text-blue-600" onClick={() => beginLog(false, entry)}>Correct entry</button><button disabled={busy} className="text-red-600" onClick={() => save({ action: 'delete', sessionId: session.id, version: session.version, entryId: entry.id })}>{entry.isCompletion ? 'Remove completion and reopen book' : 'Remove entry'}</button></div></li>)}</ol>
         {session.logs.length > 30 && <p>Showing the latest 30 entries. All entries are retained.</p>}
       </details>
-      <details className="text-sm"><summary className="cursor-pointer">Page settings</summary><form className="space-y-3 mt-3" onSubmit={event => { event.preventDefault(); void save({ action: 'settings', sessionId: session.id, version: session.version, baselinePage: Number(baseline), totalPages: total ? Number(total) : null }) }}><div className="grid sm:grid-cols-2 gap-3"><Input label="Starting page" type="number" required min={0} max={1000000} value={baseline} onChange={event => setBaseline(event.target.value)} /><Input label="Total pages (optional)" type="number" min={1} max={1000000} value={total} onChange={event => setTotal(event.target.value)} /></div><p className="text-xs text-gray-500">Use the page count of your physical edition. Pages before the starting point are excluded from future page statistics.</p><Button size="sm" disabled={busy} type="submit">Save page settings</Button></form></details>
+      <details className="text-sm"><summary className="cursor-pointer">Page settings</summary><form className="space-y-3 mt-3" onSubmit={event => { event.preventDefault(); void save({ action: 'settings', sessionId: session.id, version: session.version, baselinePage: Number(baseline), totalPages: total ? Number(total) : null }) }}><div className="grid sm:grid-cols-2 gap-3"><Input label="Starting page" type="number" required min={0} max={1000000} value={baseline} onChange={event => setBaseline(event.target.value)} /><Input label="Total pages (optional)" type="number" min={1} max={1000000} value={total} onChange={event => setDraftTotal(event.target.value)} /></div>{pageCountHelp}<p className="text-xs text-gray-500">Use the page count of your physical edition. Pages before the starting point are excluded from future page statistics.</p><Button size="sm" disabled={busy} type="submit">Save page settings</Button></form></details>
     </>}
     {(!session || (session.finishedAt && newRead)) && !error && ['UNREAD', 'READING'].includes(status) && <form className="space-y-3" onSubmit={event => { event.preventDefault(); void save({ action: 'start', page: Number(baseline), totalPages: total ? Number(total) : null }) }}>
       <p className="text-sm text-gray-600 dark:text-gray-400">{status === 'READING' ? 'Already reading this book? Set your current page as a starting point. Earlier reading will not be estimated.' : 'Start tracking this unread book. Leave the starting page at 0 to record a new read from the beginning.'}</p>
-      <div className="grid sm:grid-cols-2 gap-3"><Input label="Starting page" type="number" required min={0} max={1000000} value={baseline} onChange={event => setBaseline(event.target.value)} /><Input label="Total pages (optional)" type="number" min={1} max={1000000} value={total} onChange={event => setTotal(event.target.value)} /></div>
+      <div className="grid sm:grid-cols-2 gap-3"><Input label="Starting page" type="number" required min={0} max={1000000} value={baseline} onChange={event => setBaseline(event.target.value)} /><Input label="Total pages (optional)" type="number" min={1} max={1000000} value={total} onChange={event => setDraftTotal(event.target.value)} /></div>
+      {pageCountHelp}
       <Button size="sm" disabled={busy} type="submit">{status === 'READING' ? 'Set starting point' : 'Start reading'}</Button>
     </form>}
     {!session && !error && !['UNREAD', 'READING'].includes(status) && <p className="text-sm text-gray-500">{status === 'READ' ? 'This book is already marked Read. Its historical completion date remains unknown; it is not added to dated reading statistics.' : 'Mark this book Unread or Currently Reading to begin tracking.'}</p>}
