@@ -1,3 +1,4 @@
+import { retryTransaction } from '@/lib/transaction-retry'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import type { ReadingInput } from './validation'
@@ -15,7 +16,7 @@ export async function getReading(userId: string, bookId: string) {
 }
 
 export async function recordReading(userId: string, bookId: string, input: ReadingInput) {
-  return prisma.$transaction(async tx => {
+  return retryTransaction(() => prisma.$transaction(async tx => {
     const book = await tx.book.findFirst({ where: { id: bookId, userId } })
     if (!book) return reject('Book not found.', 404)
     const session = await tx.readingSession.findFirst({ where: { bookId }, orderBy: [{ trackedAt: 'desc' }, { id: 'desc' }], include })
@@ -73,5 +74,5 @@ export async function recordReading(userId: string, bookId: string, input: Readi
       }
     }
     return { session: await tx.readingSession.update({ where: { id: session.id }, data: { finishedAt, version: { increment: 1 } }, include }) }
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }))
 }
