@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { formatAuthorName } from '@/lib/books/author-sort';
 
 export function AuthorCard({
   author,
@@ -24,7 +25,7 @@ export function AuthorCard({
             👤
           </div>
           <div className="text-left">
-            <h3 className="font-medium">{author.name}</h3>
+            <h3 className="font-medium">{formatAuthorName(author.name)}</h3>
             <p className="text-sm text-gray-500">{author.books.length} books</p>
           </div>
         </div>

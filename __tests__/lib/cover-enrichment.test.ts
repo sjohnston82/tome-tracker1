@@ -9,7 +9,7 @@ describe('missing cover enrichment', () => {
     mocks.findMany.mockResolvedValue([{ id: 'book', title: 'A Novel', author: { name: 'An Author' }, isbn13: null }])
     mocks.lookup.mockResolvedValue('https://covers.openlibrary.org/b/id/42-L.jpg')
     mocks.updateMany.mockResolvedValue({ count: 0 })
-    expect(await fillMissingCovers('owner', 'previous')).toEqual({ processed: 1, updated: 0, next: null })
+    expect(await fillMissingCovers('owner', 'previous')).toEqual({ processed: 1, updated: 0, errors: 0, next: null })
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'owner', coverUrl: null, id: { gt: 'previous' } } }))
     expect(mocks.updateMany).toHaveBeenCalledWith({ where: { id: 'book', userId: 'owner', coverUrl: null }, data: { coverUrl: 'https://covers.openlibrary.org/b/id/42-L.jpg' } })
   })
@@ -20,7 +20,7 @@ describe('missing cover enrichment', () => {
     try {
       const result = fillMissingCovers('owner')
       await vi.runAllTimersAsync()
-      expect(await result).toEqual({ processed: 5, updated: 0, next: '4' })
+      expect(await result).toEqual({ processed: 5, updated: 0, errors: 0, next: '4' })
       expect(mocks.updateMany).not.toHaveBeenCalled()
     } finally { vi.useRealTimers() }
   })

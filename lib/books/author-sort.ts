@@ -10,3 +10,14 @@ export function authorSortKey(name: string): string {
 export function compareAuthors(a: { name: string }, b: { name: string }) {
   return authorSortKey(a.name).localeCompare(authorSortKey(b.name), 'en') || a.name.localeCompare(b.name, 'en')
 }
+
+export function formatAuthorName(name: string): string {
+  return name.split(/\s+(?:and|&)\s+|\s*;\s*|\s*\/\s*/i).map(person => {
+    const value = person.trim()
+    if (value.includes(',')) return value
+    const suffix = value.match(/\s+(?:jr\.?|sr\.?|ii|iii|iv)$/i)?.[0] ?? ''
+    const words = value.slice(0, suffix ? -suffix.length : undefined).split(/\s+/)
+    if (words.length < 2) return value
+    return `${words.pop()}, ${words.join(' ')}${suffix}`
+  }).join(' & ')
+}
