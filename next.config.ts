@@ -31,17 +31,6 @@ const withPWAConfig = withPWA({
         },
       },
     },
-    {
-      urlPattern: /\/api\/library\/sync/,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "library-sync",
-        networkTimeoutSeconds: 10,
-        expiration: {
-          maxAgeSeconds: 60 * 60 * 24,
-        },
-      },
-    },
   ],
 });
 

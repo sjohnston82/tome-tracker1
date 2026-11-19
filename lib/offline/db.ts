@@ -37,6 +37,8 @@ interface LibraryDB extends DBSchema {
 }
 
 let dbPromise: Promise<IDBPDatabase<LibraryDB>> | null = null;
+let generation = 0;
+export const cacheRevision = () => generation;
 
 function getDB() {
   if (!dbPromise) {
@@ -51,47 +53,60 @@ function getDB() {
 
         db.createObjectStore("metadata", { keyPath: "key" });
       },
-    });
+    }).catch(error => { dbPromise = null; throw error; });
   }
   return dbPromise;
 }
 
 export async function cacheLibraryData(
   authors: LibraryDB["authors"]["value"][],
-  books: LibraryDB["books"]["value"][]
+  books: LibraryDB["books"]["value"][],
+  userId: string,
+  revision = generation
 ) {
   const db = await getDB();
+  if (revision !== generation) return false;
   const tx = db.transaction(["authors", "books", "metadata"], "readwrite");
+  try {
+    await tx.objectStore("authors").clear();
+    await tx.objectStore("books").clear();
 
-  await tx.objectStore("authors").clear();
-  await tx.objectStore("books").clear();
+    for (const author of authors) {
+      await tx.objectStore("authors").put(author);
+    }
 
-  for (const author of authors) {
-    await tx.objectStore("authors").put(author);
+    for (const book of books) {
+      await tx.objectStore("books").put(book);
+    }
+
+    const now = new Date().toISOString();
+    await tx.objectStore('metadata').put({ key: 'owner', value: userId, updatedAt: now });
+    await tx.objectStore("metadata").put({
+      key: "lastSync",
+      value: now,
+      updatedAt: now,
+    });
+
+    await tx.done;
+    return true;
+  } catch (error) {
+    try { tx.abort(); } catch { /* It may already have aborted. */ }
+    await tx.done.catch(() => {});
+    throw error;
   }
-
-  for (const book of books) {
-    await tx.objectStore("books").put(book);
-  }
-
-  const now = new Date().toISOString();
-  await tx.objectStore("metadata").put({
-    key: "lastSync",
-    value: now,
-    updatedAt: now,
-  });
-
-  await tx.done;
 }
 
-export async function getCachedLibrary() {
+export async function getCachedLibrary(userId: string | null = null) {
   const db = await getDB();
-
-  const [authors, books, syncMeta] = await Promise.all([
-    db.getAll("authors"),
-    db.getAll("books"),
-    db.get("metadata", "lastSync"),
+  const tx = db.transaction(['authors', 'books', 'metadata'], 'readonly');
+  const [authors, books, syncMeta, owner] = await Promise.all([
+    tx.objectStore('authors').getAll(),
+    tx.objectStore('books').getAll(),
+    tx.objectStore('metadata').get('lastSync'),
+    tx.objectStore('metadata').get('owner'),
   ]);
+  await tx.done;
+  if (!userId || owner?.value !== userId) return { authors: [], books: [], lastSync: null };
 
   return {
     authors,
@@ -100,16 +115,12 @@ export async function getCachedLibrary() {
   };
 }
 
-export async function checkOwnershipOffline(isbn13: string): Promise<boolean> {
-  const db = await getDB();
-  const book = await db.getFromIndex("books", "by-isbn", isbn13);
-  return book !== null;
+export async function checkOwnershipOffline(isbn13: string, userId: string | null = null): Promise<boolean> {
+  return (await getCachedLibrary(userId)).books.some(book => book.isbn13 === isbn13);
 }
 
-export async function searchBooksOffline(query: string) {
-  const db = await getDB();
-  const books = await db.getAll("books");
-  const authors = await db.getAll("authors");
+export async function searchBooksOffline(query: string, userId: string | null = null) {
+  const { books, authors } = await getCachedLibrary(userId);
 
   const authorMap = new Map(authors.map((author) => [author.id, author]));
   const lowerQuery = query.toLowerCase();
@@ -123,14 +134,18 @@ export async function searchBooksOffline(query: string) {
   });
 }
 
-export async function getCacheStats() {
+export async function getCacheStats(userId: string | null = null) {
   const db = await getDB();
 
-  const [authorCount, bookCount, syncMeta] = await Promise.all([
-    db.count("authors"),
-    db.count("books"),
-    db.get("metadata", "lastSync"),
+  const tx = db.transaction(['authors', 'books', 'metadata'], 'readonly');
+  const [authorCount, bookCount, syncMeta, owner] = await Promise.all([
+    tx.objectStore('authors').count(),
+    tx.objectStore('books').count(),
+    tx.objectStore('metadata').get('lastSync'),
+    tx.objectStore('metadata').get('owner'),
   ]);
+  await tx.done;
+  if (!userId || owner?.value !== userId) return { authorCount: 0, bookCount: 0, lastSync: null };
 
   return {
     authorCount,
@@ -140,6 +155,7 @@ export async function getCacheStats() {
 }
 
 export async function clearCache() {
+  generation++;
   const db = await getDB();
   const tx = db.transaction(["authors", "books", "metadata"], "readwrite");
 
@@ -148,4 +164,5 @@ export async function clearCache() {
   await tx.objectStore("metadata").clear();
 
   await tx.done;
+  if (typeof caches !== 'undefined') await Promise.all(['library-sync', 'cover-images', 'google-covers'].map(name => caches.delete(name)));
 }

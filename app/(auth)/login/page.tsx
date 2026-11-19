@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ export default function LoginPage() {
   const { login, loading, error } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [cacheWarning, setCacheWarning] = useState(false);
+  useEffect(() => { setCacheWarning(new URLSearchParams(window.location.search).get('cacheWarning') === '1'); }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -23,6 +25,7 @@ export default function LoginPage() {
         <p className="text-gray-600 mt-2">Sign in to your library</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">
+        {cacheWarning && <p role="alert" className="text-sm text-amber-700">Your account action completed, but some offline files could not be cleared on this device. You can remove them using your browser’s site-data controls.</p>}
         {error && (
           <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm">
             {error}
