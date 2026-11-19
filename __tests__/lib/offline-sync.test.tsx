@@ -35,4 +35,15 @@ describe('settings offline sync wiring', () => {
     await act(async () => { expect(await result.current.syncAndCache()).toBe(false) })
     expect(fetch).not.toHaveBeenCalled()
   })
+  it('refreshes all mounted settings panels after a successful sync', async () => {
+    const first = renderHook(useOfflineLibrary, { wrapper });
+    const second = renderHook(useOfflineLibrary, { wrapper });
+    await act(async () => {});
+    expect(second.result.current.cacheStats?.bookCount).toBe(1);
+    mocks.stats.mockResolvedValue({ authorCount: 2, bookCount: 259, lastSync: '2026-11-19T20:00:00Z' });
+    await act(async () => { expect(await first.result.current.syncAndCache()).toBe(true); });
+    expect(second.result.current.cacheStats?.bookCount).toBe(259);
+    expect(second.result.current.cacheStats?.lastSync).toBe('2026-11-19T20:00:00Z');
+  });
+
 })

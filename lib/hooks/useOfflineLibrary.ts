@@ -40,8 +40,11 @@ export function useOfflineLibrary() {
 
   useEffect(() => {
     let active = true;
-    getCacheStats(userId).then(stats => { if (active) { setCacheStats(stats); setCacheError(null); } }).catch(() => { if (active) { setCacheStats(null); setCacheError('Offline storage is unavailable in this browser. Check site-storage permissions and try again.'); } });
-    return () => { active = false; };
+    const refresh = () => { void getCacheStats(userId).then(stats => { if (active) { setCacheStats(stats); setCacheError(null); } }).catch(() => { if (active) { setCacheStats(null); setCacheError('Offline storage is unavailable in this browser. Check site-storage permissions and try again.'); } }); };
+    refresh();
+    window.addEventListener('tome-cache-updated', refresh);
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('tome-cache-updated', refresh); window.removeEventListener('focus', refresh); };
   }, [userId]);
 
   const syncAndCache = useCallback(async () => {
@@ -80,6 +83,7 @@ export function useOfflineLibrary() {
       if (!await cacheLibraryData(authors, books, userId, revision)) return false;
       setCacheStats(await getCacheStats(userId));
       setCacheError(null);
+      window.dispatchEvent(new Event('tome-cache-updated'));
 
       return true;
     } catch {
@@ -100,6 +104,7 @@ export function useOfflineLibrary() {
     finally {
       try { setCacheStats(await getCacheStats(userId)); setCacheError(null); }
       catch { setCacheStats(null); setCacheError('Offline storage is unavailable in this browser.'); }
+      window.dispatchEvent(new Event('tome-cache-updated'));
     }
   }, [userId]);
 
