@@ -19,6 +19,11 @@ describe('library alphabet navigation', () => {
     expect(screen.getByRole('heading', { name: 'Arkady & Boris Strugatsky' })).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /Terry Pratchett/ }))
     expect(screen.getByRole('link', { name: /A Novel/ })).toBeDefined()
+    const link = screen.getByRole('link', { name: /A Novel/ })
+    fireEvent.click(screen.getByRole('button', { name: /Terry Pratchett/ }))
+    expect(screen.queryByRole('link', { name: /A Novel/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Terry Pratchett/ }))
+    expect(screen.getByRole('link', { name: /A Novel/ })).toBe(link)
   })
   it('jumps to an available letter and disables letters absent from filtered results', () => {
     const { rerender } = render(<AlphabeticalAuthors authors={authors} groupBySeries={false} />)

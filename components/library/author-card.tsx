@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { BookCover } from '@/components/library/book-cover';
@@ -13,11 +13,15 @@ export function AuthorCard({
   groupBySeries: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [opened, setOpened] = useState(false);
+  const panelId = useId();
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => { setOpened(true); setExpanded(!expanded); }}
+        aria-expanded={expanded}
+        aria-controls={panelId}
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50"
       >
         <div className="flex items-center gap-3">
@@ -32,8 +36,8 @@ export function AuthorCard({
           ▼
         </span>
       </button>
-      {expanded && (
-        <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 space-y-2 mt-3">
+      {opened && (
+        <div id={panelId} hidden={!expanded} className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 space-y-2 mt-3">
           {author.books.map((book: any) => (
             <Link
               key={book.id}

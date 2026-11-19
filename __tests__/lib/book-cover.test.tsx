@@ -1,10 +1,32 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { BookCover } from '@/components/library/book-cover'
 import { coverImageUrl } from '@/lib/books/cover-image'
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
 const url = 'https://covers.openlibrary.org/b/id/42-L.jpg?default=false'
 describe('cover image rendering', () => {
+  it('shows an already cached image without waiting for another load event', () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true)
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(180)
+    vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(280)
+    render(<BookCover url={url} title="A Novel" thumbnail />)
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByAltText('A Novel').className).toContain('opacity-100')
+  })
+  it('shows a loading skeleton until a real image loads, and restarts it for a new URL', () => {
+    const { rerender } = render(<BookCover url={url} title="A Novel" thumbnail />)
+    expect(screen.getByRole('status', { name: 'Loading cover for A Novel' })).toBeDefined()
+    const image = screen.getByAltText('A Novel')
+    Object.defineProperty(image, 'naturalWidth', { value: 180 })
+    Object.defineProperty(image, 'naturalHeight', { value: 280 })
+    fireEvent.load(image)
+    expect(screen.queryByRole('status')).toBeNull()
+    rerender(<BookCover url="https://covers.openlibrary.org/b/id/99-L.jpg" title="A Novel" thumbnail />)
+    expect(screen.getByRole('status', { name: 'Loading cover for A Novel' })).toBeDefined()
+    fireEvent.error(screen.getByAltText('A Novel'))
+    fireEvent.error(screen.getByAltText('A Novel'))
+    expect(screen.queryByRole('status')).toBeNull()
+  })
   it('uses lazy smaller library thumbnails without modifying the stored URL', () => {
     render(<BookCover url={url} title="A Novel" thumbnail />)
     const image = screen.getByAltText('A Novel')
