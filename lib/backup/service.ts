@@ -1,3 +1,4 @@
+import { retryTransaction } from '@/lib/transaction-retry';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { backupSchema, type Backup } from './validation';
@@ -16,7 +17,7 @@ export async function exportBackup(userId: string): Promise<Backup> {
 export class NonemptyLibraryError extends Error {}
 export async function restoreBackup(userId: string, input: unknown) {
   const backup = backupSchema.parse(input);
-  await prisma.$transaction(async tx => {
+  await retryTransaction(() => prisma.$transaction(async tx => {
     const counts = await Promise.all([tx.book.count({ where: { userId } }), tx.author.count({ where: { userId } }), tx.work.count({ where: { userId } }), tx.series.count({ where: { userId } }), tx.collectionImport.count({ where: { userId } })]);
     if (counts.some(Boolean)) throw new NonemptyLibraryError('Restore requires an empty library. Existing data will not be overwritten.');
     const mapping = () => new Map<string, string>();
@@ -31,7 +32,7 @@ export async function restoreBackup(userId: string, input: unknown) {
     await tx.readingSession.createMany({ data: backup.sessions.map(s => ({ ...s, id: sessions.get(s.id)!, bookId: books.get(s.bookId)! })) });
     await tx.readingLog.createMany({ data: backup.logs.map(l => ({ ...l, id: randomUUID(), sessionId: sessions.get(l.sessionId)! })) });
     await tx.collectionImport.createMany({ data: backup.imports.map(i => ({ ...i, id: randomUUID(), userId, manifest: i.manifest === null ? Prisma.JsonNull : i.manifest, report: i.report === null ? Prisma.JsonNull : i.report })) });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 60000 });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 60000 }));
   return { books: backup.books.length, logs: backup.logs.length };
 }
 const csvCell = (input: unknown) => { let value = String(input ?? ''); if (/^[\s]*[=+@-]/.test(value) || /^[\t\r\n]/.test(value)) value = "'" + value; return '"' + value.replaceAll('"', '""') + '"'; };

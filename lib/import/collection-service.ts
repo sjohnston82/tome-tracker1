@@ -1,3 +1,4 @@
+import { retryTransaction } from '@/lib/transaction-retry'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { collectionManifestSchema, type CollectionManifest } from './collection-validation'
@@ -21,7 +22,7 @@ export async function applyCollectionImport(userId: string, input: unknown) {
   const manifest = collectionManifestSchema.parse(input)
   // A single serializable transaction protects reruns and simultaneous imports.
   // Never update existing metadata or delete existing records.
-  return prisma.$transaction(async tx => {
+  return retryTransaction(() => prisma.$transaction(async tx => {
     const plan = await preview(tx, userId, manifest)
     if (!plan.ready) return { applied: false, ready: false, summary: plan.summary, issues: plan.issues }
     const bookIds = new Map<string, string>()
@@ -66,5 +67,5 @@ export async function applyCollectionImport(userId: string, input: unknown) {
     const report = { applied: true, ready: true, summary: plan.summary, actualOwned: imported.length, actualStatuses, reconciled, issues: plan.issues }
     await tx.collectionImport.upsert({ where: { userId_dataset: { userId, dataset: manifest.dataset } }, update: { manifest: manifest as Prisma.InputJsonValue, report: report as Prisma.InputJsonValue }, create: { userId, dataset: manifest.dataset, manifest: manifest as Prisma.InputJsonValue, report: report as Prisma.InputJsonValue } })
     return report
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 60000, maxWait: 10000 })
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 60000, maxWait: 10000 }))
 }
