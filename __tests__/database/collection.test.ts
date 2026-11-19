@@ -49,9 +49,9 @@ describe('collection import against disposable PostgreSQL', () => {
   it('rejects invalid manifests without partial writes', async () => {
     const manifest = collectionFixture()
     manifest.expected.owned = 2
-    const before = await prisma.book.count()
+    const before = await prisma.book.count({ where: { userId: owner } })
     await expect(applyCollectionImport(owner, manifest)).rejects.toThrow()
-    expect(await prisma.book.count()).toBe(before)
+    expect(await prisma.book.count({ where: { userId: owner } })).toBe(before)
   })
 
   it('reconciles a 245-edition import and reruns without creating duplicates', async () => {
