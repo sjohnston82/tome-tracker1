@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLibrary } from "@/lib/hooks/useLibrary";
+import { compareAuthors } from "@/lib/books/author-sort";
+import { CoverEnrichment } from "@/components/library/cover-enrichment";
 import { AuthorCard } from "@/components/library/author-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +27,7 @@ export default function LibraryPage() {
       author.books.some((book: any) =>
         book.title.toLowerCase().includes(search.toLowerCase())
       )
-  );
+  ).sort(compareAuthors);
 
   if (loading && !authors.length) {
     return <div className="text-center py-12">Loading...</div>;
@@ -37,6 +39,7 @@ export default function LibraryPage() {
   return (
     <>
       <OnboardingModal />
+      <CoverEnrichment authors={authors} onUpdated={sync} />
       <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <div>

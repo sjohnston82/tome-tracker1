@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { checklistStats, ownedEditions, type ChecklistEntry, type ChecklistSeries } from '@/lib/series/checklist'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -109,23 +109,16 @@ export default function SeriesPage() {
         {manifest && !report.applied && <Button disabled={busy || !online || !report.ready} onClick={() => perform(async () => setReport(await request<ImportReport>('/api/collection-import', 'POST', { mode: 'apply', manifest })), 'Collection imported. Existing metadata was preserved.')}>Import this collection</Button>}
       </>}
     </section>}
-    {loading ? <p role="status" className="py-12 text-center">Loading your series…</p> : <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+    {loading ? <p role="status" className="py-12 text-center">Loading your series…</p> : <div className="max-w-4xl mx-auto">
       <aside className="space-y-4">
         <Input aria-label="Search series or titles" placeholder="Search series or titles" value={search} onChange={e => setSearch(e.target.value)} />
-        <nav aria-label="Series checklists" className="space-y-2 lg:max-h-[65vh] lg:overflow-y-auto">{visibleSeries.map(s => {
+        <nav aria-label="Series checklists" className="space-y-3">{visibleSeries.map(s => {
           const summary = checklistStats(s)
-          return <button key={s.id} onClick={() => { setSelected(s.id); setFilter('all'); setEditing(null) }} aria-current={selected === s.id ? 'page' : undefined} className={`text-left w-full border rounded-xl p-4 transition-colors ${selected === s.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'bg-white dark:bg-gray-900 hover:border-blue-300'}`}>
+          return <Fragment key={s.id}><button onClick={() => { setSelected(selected === s.id ? null : s.id); setFilter('all'); setEditing(null) }} aria-expanded={selected === s.id} aria-controls={`series-details-${s.id}`} className={`text-left w-full border rounded-xl p-4 transition-colors ${selected === s.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'bg-white dark:bg-gray-900 hover:border-blue-300'}`}>
             <span className="font-semibold block">{s.name}</span><span className="text-xs text-gray-600 dark:text-gray-400 block mt-1">{summary.owned} of {summary.total} owned · {summary.missing} missing</span>
             <progress aria-label={`${s.name} ownership`} className="w-full h-1.5 mt-3 accent-blue-600" value={summary.owned} max={summary.total || 1} />
           </button>
-        })}</nav>
-        {!visibleSeries.length && <p className="text-sm text-gray-500">No series found.</p>}
-        <form className="border-t pt-4 space-y-2" onSubmit={e => { e.preventDefault(); perform(async () => { const result = await request<{ series: ChecklistSeries }>('/api/series', 'POST', { name: newName }); setSelected(result.series.id); setNewName('') }, 'Series created.') }}>
-          <Input label="New series" required maxLength={250} value={newName} onChange={e => setNewName(e.target.value)} />
-          <Button size="sm" disabled={busy || !online || !newName.trim()} type="submit">Create series</Button>
-        </form>
-      </aside>
-      <section className="min-w-0">
+          {selected === s.id &&       <section id={`series-details-${s.id}`} aria-label={`${s.name} checklist`} className="min-w-0 py-4">
         {current && stats ? <>
           <div className="border rounded-2xl p-6 mb-5 bg-white dark:bg-gray-900">
             <h2 className="text-2xl font-bold">{current.name}</h2>{current.description && <p className="mt-2 text-gray-600 dark:text-gray-400">{current.description}</p>}
@@ -174,7 +167,16 @@ export default function SeriesPage() {
             <Button size="sm" type="submit" disabled={busy || !online}>Add entry</Button>
           </form>
         </> : <div className="border border-dashed rounded-2xl p-12 text-center"><h2 className="text-xl font-semibold">Start a series checklist</h2><p className="text-gray-500 mt-2">Import your collection or create a series to see owned books and missing entries together.</p></div>}
-      </section>
+      </section>}
+          </Fragment>
+        })}</nav>
+        {!visibleSeries.length && <p className="text-sm text-gray-500">No series found.</p>}
+        <form className="border-t pt-4 space-y-2" onSubmit={e => { e.preventDefault(); perform(async () => { const result = await request<{ series: ChecklistSeries }>('/api/series', 'POST', { name: newName }); setSelected(result.series.id); setNewName('') }, 'Series created.') }}>
+          <Input label="New series" required maxLength={250} value={newName} onChange={e => setNewName(e.target.value)} />
+          <Button size="sm" disabled={busy || !online || !newName.trim()} type="submit">Create series</Button>
+        </form>
+      </aside>
+
     </div>}
   </div>
 }

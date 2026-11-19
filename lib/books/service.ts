@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { CreateBookInput, UpdateBookInput } from './validation'
 import { normalizeToIsbn13 } from './isbn'
+import { findBookCover } from '@/lib/metadata/covers'
 
 export async function createBook(userId: string, input: CreateBookInput) {
   const isbn13 = input.isbn13 ? normalizeToIsbn13(input.isbn13) : null
@@ -30,7 +31,7 @@ export async function createBook(userId: string, input: CreateBookInput) {
       isbn10: input.isbn10,
       publisher: input.publisher,
       publicationYear: input.publicationYear,
-      coverUrl: input.coverUrl,
+      coverUrl: input.coverUrl || await findBookCover(input.title, input.authorName, isbn13),
       seriesName: input.seriesName,
       seriesNumber: input.seriesNumber,
       readingStatus: input.readingStatus ?? 'UNKNOWN',

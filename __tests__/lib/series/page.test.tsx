@@ -14,6 +14,18 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 describe('series checklist interface', () => {
+  it('expands details immediately after the clicked series and collapses on a second click', async () => {
+    const other = { ...data, id: 'series-two', name: 'Another Series', entries: [] }
+    fetcher.mockImplementation(async (url: string) => ({ ok: true, status: 200, json: async () => url === '/api/series' ? { series: [data, other] } : url === '/api/library/sync' ? { authors: [] } : { import: null } }))
+    render(<SeriesPage />)
+    const button = await screen.findByRole('button', { name: /Another Series/ })
+    fireEvent.click(button)
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect(button.nextElementSibling?.getAttribute('aria-label')).toBe('Another Series checklist')
+    expect(screen.queryByText('First novella')).toBeNull()
+    fireEvent.click(button)
+    expect(screen.queryByRole('region', { name: 'Another Series checklist' })).toBeNull()
+  })
   it('shows owned omnibus contents, missing works, and unknown years', async () => {
     render(<SeriesPage />)
     expect(await screen.findByText('First novella')).toBeDefined()
