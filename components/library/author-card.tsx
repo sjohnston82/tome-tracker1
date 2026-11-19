@@ -21,11 +21,8 @@ export function AuthorCard({
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50"
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-            👤
-          </div>
           <div className="text-left">
-            <h3 className="font-medium">{formatAuthorName(author.name)}</h3>
+            <h3 className="text-lg sm:text-xl font-semibold">{formatAuthorName(author.name)}</h3>
             <p className="text-sm text-gray-500">{author.books.length} books</p>
           </div>
         </div>

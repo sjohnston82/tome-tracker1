@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { authorSortKey, compareAuthors, formatAuthorName } from '@/lib/books/author-sort'
 
 describe('library author filing', () => {
+  it('formats and sorts shared surnames without treating a given name as a surname', () => {
+    for (const name of ['Arkady & Boris Strugatsky', 'Arkady and Boris Strugatsky', 'Arkady Strugatsky & Boris Strugatsky', 'Strugatsky, Arkady & Boris']) {
+      expect(formatAuthorName(name)).toBe('Strugatsky, Arkady & Boris')
+      expect(authorSortKey(name)).toBe('strugatsky')
+    }
+    expect(formatAuthorName('Larry Niven & Arthur C. Clarke')).toBe('Niven, Larry & Clarke, Arthur C.')
+  })
   it('displays surnames first without changing stored credits', () => {
     expect(formatAuthorName('Arthur C. Clarke')).toBe('Clarke, Arthur C.')
     expect(formatAuthorName('Arthur C. Clarke & Larry Niven')).toBe('Clarke, Arthur C. & Niven, Larry')
