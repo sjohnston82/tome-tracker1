@@ -86,7 +86,7 @@ export default function LibraryPage() {
           checked={groupBySeries}
           onChange={(event) => setGroupBySeries(event.target.checked)}
         />
-        Group by series
+        Show series details
       </label>
       {filteredAuthors.length === 0 ? (
         <div className="text-center py-12 text-gray-500">

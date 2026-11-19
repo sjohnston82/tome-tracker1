@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { formatAuthorName } from '@/lib/books/author-sort';
 import { BookCover } from '@/components/library/book-cover';
 
 export function AuthorCard({
@@ -23,7 +22,7 @@ export function AuthorCard({
       >
         <div className="flex items-center gap-3">
           <div className="text-left">
-            <h3 className="text-lg sm:text-xl font-semibold">{formatAuthorName(author.name)}</h3>
+            <h3 className="text-lg sm:text-xl font-semibold">{author.name}</h3>
             <p className="text-sm text-gray-500">{author.books.length} books</p>
           </div>
         </div>
@@ -46,7 +45,7 @@ export function AuthorCard({
                 <p className="font-medium">{book.title}</p>
                 {groupBySeries && book.seriesName && (
                   <p className="text-sm text-gray-500">
-                    {book.seriesName} #{book.seriesNumber}
+                    {book.seriesName}{book.seriesNumber != null ? ` #${book.seriesNumber}` : ''}
                   </p>
                 )}
               </div>

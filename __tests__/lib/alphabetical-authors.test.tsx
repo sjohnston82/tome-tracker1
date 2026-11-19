@@ -15,7 +15,9 @@ describe('library alphabet navigation', () => {
     const headings = screen.getAllByRole('heading', { level: 2 })
     expect(headings.map(heading => heading.textContent)).toEqual(['C 1 author', 'P 1 author', 'S 1 author'])
     expect(screen.queryByText('A Novel')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Pratchett, Terry/ }))
+    expect(screen.getByRole('heading', { name: 'Arthur C. Clarke' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Arkady & Boris Strugatsky' })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /Terry Pratchett/ }))
     expect(screen.getByRole('link', { name: /A Novel/ })).toBeDefined()
   })
   it('jumps to an available letter and disables letters absent from filtered results', () => {
