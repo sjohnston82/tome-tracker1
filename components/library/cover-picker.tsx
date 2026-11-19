@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { CoverOption } from '@/lib/metadata/cover-options'
+import { coverImageUrl, isBlankCover } from '@/lib/books/cover-image'
 
 export function CoverPicker({ book, onSaved }: { book: { id: string; title: string; author: { name: string }; coverUrl: string | null }; onSaved: () => Promise<void> }) {
   const [open, setOpen] = useState(false)
@@ -78,13 +79,13 @@ export function CoverPicker({ book, onSaved }: { book: { id: string; title: stri
         {!options.length && <p>No covers found. Try a shorter title or a different author spelling.</p>}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
           {options.map((option, index) => <button key={option.url} type="button" aria-label={`Preview cover ${index + 1}: ${option.title}`} aria-pressed={selected?.url === option.url} disabled={saving || broken.has(option.url)} onClick={() => setSelected(option)} className={`border rounded-lg p-2 text-left disabled:opacity-50 ${selected?.url === option.url ? 'ring-2 ring-blue-500' : ''}`}>
-            {broken.has(option.url) ? <span>Image unavailable</span> : <img src={option.url} alt={`${option.title} — ${option.source}`} loading="lazy" className="h-36 w-full object-contain" onError={() => failImage(option.url)} />}
+            {broken.has(option.url) ? <span>Image unavailable</span> : <img src={coverImageUrl(option.url, true)} alt={`${option.title} — ${option.source}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-36 w-full object-contain" onError={() => failImage(option.url)} onLoad={event => { if (isBlankCover(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)) failImage(option.url) }} />}
             <span className="block text-xs mt-2">{option.title}</span><span className="block text-xs text-gray-500">{option.publisher ?? option.source}{option.year ? ` · ${option.year}` : ''}</span>
             {option.exactIsbn && <span className="text-xs text-green-700">Matches your ISBN</span>}
           </button>)}
         </div>
         {selected && <div className="border-t pt-4 space-y-3">
-          <img src={selected.url} alt={`Selected cover: ${selected.title}`} className="max-h-80 max-w-full mx-auto object-contain" onError={() => failImage(selected.url)} />
+          <img src={selected.url} alt={`Selected cover: ${selected.title}`} decoding="async" referrerPolicy="no-referrer" className="max-h-80 max-w-full mx-auto object-contain" onError={() => failImage(selected.url)} onLoad={event => { if (isBlankCover(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)) failImage(selected.url) }} />
           <p className="text-sm">{selected.title} · {selected.authors.join(', ')} · {selected.source}{selected.isbn ? ` · ISBN ${selected.isbn}` : ''}</p>
           <Button disabled={!online || saving} onClick={() => save(selected.url)}>Use this cover</Button>
         </div>}

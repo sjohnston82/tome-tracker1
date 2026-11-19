@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatAuthorName } from '@/lib/books/author-sort';
+import { BookCover } from '@/components/library/book-cover';
 
 export function AuthorCard({
   author,
@@ -40,17 +41,7 @@ export function AuthorCard({
               href={`/library/book/${book.id}`}
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50"
             >
-              {book.coverUrl ? (
-                <img
-                  src={book.coverUrl}
-                  alt={book.title}
-                  className="w-10 h-14 object-cover rounded"
-                />
-              ) : (
-                <div className="w-10 h-14 bg-gray-200 rounded flex items-center justify-center">
-                  📖
-                </div>
-              )}
+              <BookCover url={book.coverUrl} title={book.title} thumbnail />
               <div>
                 <p className="font-medium">{book.title}</p>
                 {groupBySeries && book.seriesName && (

@@ -6,6 +6,7 @@ import { useBook } from "@/lib/hooks/useBook";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CoverPicker } from '@/components/library/cover-picker';
+import { BookCover } from '@/components/library/book-cover';
 
 export default function BookDetailPage() {
   const params = useParams();
@@ -82,17 +83,7 @@ export default function BookDetailPage() {
       </button>
       <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
         <div className="flex gap-6 mb-6">
-          {book.coverUrl ? (
-            <img
-              src={book.coverUrl}
-              alt={book.title}
-              className="w-32 h-48 object-cover rounded"
-            />
-          ) : (
-            <div className="w-32 h-48 bg-gray-200 rounded flex items-center justify-center text-4xl">
-              📖
-            </div>
-          )}
+          <BookCover url={book.coverUrl} title={book.title} retry />
           <div>
             {editing ? (
               <div className="space-y-3">
