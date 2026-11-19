@@ -6,6 +6,24 @@ const google = (pages: number, id = isbn) => ({ items: [{ volumeInfo: { title: '
 const edition = (pages: number) => ({ title: 'A Novel', number_of_pages: pages, isbn_13: [isbn], publishers: ['Publisher'], publish_date: '2000' })
 const mock = (handler: (url: string) => unknown) => vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, status: 200, json: async () => handler(url) })))
 describe('edition page-count suggestions', () => {
+  it('keeps pagination available after one edition source fails, and retries transient errors once', async () => {
+    const fetcher = vi.fn(async (url: string) => ({ ok: !url.includes('OL1W/editions'), status: url.includes('OL1W/editions') ? 503 : 200, json: async () => url.includes('googleapis') ? { items: [] } : url.includes('search.json') ? { docs: [1, 2].map(id => ({ key: `/works/OL${id}W`, title: 'A Novel', author_name: ['An Author'] })) } : { entries: [edition(602)] } }))
+    vi.stubGlobal('fetch', fetcher)
+    vi.useFakeTimers()
+    try {
+      const pending = lookupPageCounts('A Novel', 'An Author', null, true)
+      await vi.runAllTimersAsync()
+      const result = await pending
+      expect(result.incomplete).toBe(true)
+      expect(result.nextOffset).toBe(30)
+      expect(result.options.map(option => option.pages)).toEqual([602])
+      expect(fetcher.mock.calls.filter(([url]) => url.includes('OL1W/editions'))).toHaveLength(2)
+    } finally { vi.useRealTimers() }
+  })
+  it('uses provider next links or total size even when a batch has fewer than 30 rows', async () => {
+    mock(url => url.includes('googleapis') ? { items: [] } : url.includes('search.json') ? { docs: [{ key: '/works/OL1W', title: 'A Novel', author_name: ['An Author'] }] } : { size: 100, links: { next: '/works/OL1W/editions.json?offset=30' }, entries: [edition(602)] })
+    expect((await lookupPageCounts('A Novel', 'An Author', null, true)).nextOffset).toBe(30)
+  })
   it('loads later edition batches rather than repeating the first results', async () => {
     mock(url => url.includes('googleapis') ? { items: [] } : url.includes('search.json') ? { docs: [{ key: '/works/OL1W', title: 'A Novel', author_name: ['An Author'] }] } : { entries: Array.from({ length: 30 }, (_, i) => ({ ...edition(608 + i), isbn_13: [`edition-${i}`] })) })
     const result = await lookupPageCounts('A Novel', 'An Author', null, true, 30)

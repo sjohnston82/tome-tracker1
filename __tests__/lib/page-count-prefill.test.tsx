@@ -5,6 +5,24 @@ const suggestion = { suggested: 480, options: [{ pages: 480, title: 'A Novel', s
 const active = { id: 'session', baselinePage: 224, totalPages: 512, startedAt: null, trackedAt: '2026-11-19T15:00:00Z', finishedAt: null, version: 0, logs: [] }
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 describe('page-count draft prefilling', () => {
+  it('retains good options when retrying a partially failing batch', async () => {
+    let searches = 0
+    const fetcher = vi.fn(async (url: string) => ({ ok: true, json: async () => {
+      if (!url.includes('page-count')) return { session: active }
+      searches++
+      return { suggested: null, options: [{ ...suggestion.options[0], pages: searches === 1 ? 602 : 608 }], message: 'Partial results', warnings: ['Some editions could not be loaded'], incomplete: true, nextOffset: 30 }
+    } }))
+    vi.stubGlobal('fetch', fetcher)
+    render(<ReadingTracker bookId="book" status="READING" onChanged={vi.fn()} />)
+    await screen.findByText('Page 224 of 512')
+    fireEvent.click(screen.getByText('Page settings'))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose another edition' }))
+    await screen.findByRole('button', { name: 'Use 602 pages' })
+    fireEvent.click(screen.getByRole('button', { name: 'Retry page count lookup' }))
+    await screen.findByRole('button', { name: 'Use 608 pages' })
+    expect(screen.getByRole('button', { name: 'Use 602 pages' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Load more editions' })).toBeDefined()
+  })
   it('searches a specific edition ISBN and can append more editions without saving', async () => {
     const option = { pages: 608, title: 'East of Eden', source: 'Open Library', exactIsbn: true, isbn: '9780593513651' }
     const fetcher = vi.fn(async (url: string) => ({ ok: true, json: async () => !url.includes('page-count') ? { session: active } : url.includes('offset=30') ? { suggested: null, options: [{ ...option, pages: 640, isbn: 'another-edition' }], message: 'More editions', warnings: [], nextOffset: null } : url.includes('isbn=') ? { suggested: 608, options: [option], message: 'Specific ISBN', warnings: [], nextOffset: 30 } : suggestion }))

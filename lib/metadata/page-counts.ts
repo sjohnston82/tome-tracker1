@@ -3,7 +3,8 @@ import { sameAuthor } from './covers'
 import { authorPeople } from '@/lib/books/author-sort'
 
 export type PageCountOption = { pages: number; title: string; source: 'Open Library' | 'Google Books'; exactIsbn: boolean; isbn?: string; publisher?: string; year?: string }
-export type PageCountResult = { suggested: number | null; options: PageCountOption[]; message: string; warnings: string[]; nextOffset?: number | null }
+export type PageCountResult = { suggested: number | null; options: PageCountOption[]; message: string; warnings: string[]; nextOffset?: number | null; incomplete?: boolean }
+class ProviderError extends Error { constructor(public status: number) { super('Provider unavailable') } }
 const strings = z.array(z.string()).optional().default([])
 const count = z.number().int().positive().max(1000000)
 const editionSchema = z.object({ title: z.string(), number_of_pages: count, isbn_13: strings, isbn_10: strings, publishers: strings, publish_date: z.string().optional() })
@@ -15,13 +16,22 @@ const list = (data: unknown, field: string): unknown[] => typeof data === 'objec
 export async function lookupPageCounts(title: string, author: string, isbn?: string | null, includeAlternatives = false, offset = 0): Promise<PageCountResult> {
   const options: PageCountOption[] = [], warnings: string[] = []
   let hasMore = false
+  let incomplete = false
   const authors = authorPeople(author)
   const matches = (candidateTitle: string, credits: string[]) => titleKey(candidateTitle) === titleKey(title) && authors.every(person => credits.some(credit => sameAuthor(person, credit)))
-  const fetchJson = async (url: string) => {
-    const response = await fetch(url, { signal: AbortSignal.timeout(6000), next: { revalidate: 86400 } })
-    if (response.status === 404) return null
-    if (!response.ok) throw new Error('Provider unavailable')
-    return response.json()
+  const fetchJson = async (url: string, retryTransient = false): Promise<unknown> => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(6000), next: { revalidate: 86400 } })
+        if (response.status === 404) return null
+        if (!response.ok) throw new ProviderError(response.status)
+        return await response.json()
+      } catch (error) {
+        const transient = error instanceof ProviderError ? error.status === 429 || error.status >= 500 : error instanceof Error && ['TypeError', 'AbortError', 'TimeoutError'].includes(error.name)
+        if (!retryTransient || attempt > 0 || !transient) throw error
+        await new Promise(resolve => setTimeout(resolve, 1200))
+      }
+    }
   }
   const google = async (exact: boolean) => {
     try {
@@ -64,11 +74,13 @@ export async function lookupPageCounts(title: string, author: string, isbn?: str
       for (const work of works.slice(0, 2)) {
         await new Promise(resolve => setTimeout(resolve, 1100))
         try {
-          const entries = list(await fetchJson(`https://openlibrary.org${work.key}/editions.json?limit=30&offset=${offset}`), 'entries')
-          if (entries.length === 30) hasMore = true
+          const data = await fetchJson(`https://openlibrary.org${work.key}/editions.json?limit=30&offset=${offset}`, true)
+          const entries = list(data, 'entries')
+          const pagination = z.object({ size: z.number().optional(), links: z.object({ next: z.string().optional() }).optional() }).safeParse(data)
+          if (entries.length === 30 || (pagination.success && (!!pagination.data.links?.next || (pagination.data.size ?? 0) > offset + entries.length))) hasMore = true
           for (const edition of entries) addEdition(edition, false)
         }
-        catch { warnings.push('Some Open Library edition page counts could not be loaded.') }
+        catch { incomplete = true; hasMore = true; warnings.push('Some Open Library editions are temporarily unavailable. Retry this batch or load more editions; the results below are still usable.') }
       }
     } catch { warnings.push('Open Library page counts could not be loaded.') }
   }
@@ -82,5 +94,5 @@ export async function lookupPageCounts(title: string, author: string, isbn?: str
   const exactCounts = new Set(distinct.filter(option => option.exactIsbn).map(option => option.pages))
   const suggested = exactCounts.size === 1 ? [...exactCounts][0] : null
   const message = exactCounts.size > 1 ? 'ISBN sources disagree. Choose the count printed in your physical edition.' : suggested !== null ? 'Page count matched your ISBN. Check it against your edition before saving.' : distinct.length ? 'Edition suggestions only: confirm the page count of the copy you own.' : 'No reliable page count found. You can enter it manually or leave it unknown.'
-  return { suggested, options: distinct.slice(0, includeAlternatives ? 90 : 12), message, warnings: [...new Set(warnings)], nextOffset: includeAlternatives && hasMore && offset < 270 ? offset + 30 : null }
+  return { suggested, options: distinct.slice(0, includeAlternatives ? 90 : 12), message, warnings: [...new Set(warnings)], incomplete, nextOffset: includeAlternatives && hasMore && offset < 270 ? offset + 30 : null }
 }

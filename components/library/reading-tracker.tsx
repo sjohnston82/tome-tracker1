@@ -37,6 +37,7 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
   const [isbnSearch, setIsbnSearch] = useState('')
   const [lookupIsbn, setLookupIsbn] = useState<string | null>(null)
   const [editionOffset, setEditionOffset] = useState(0)
+  const pageResultKey = useRef('')
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine)
@@ -73,11 +74,14 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
         const data: PageCountResult = await response.json()
         if (!response.ok) throw new Error(data.message ?? 'Page count lookup is unavailable. You can still enter a count manually.')
         if (controller.signal.aborted) return
-        setPageCounts(previous => editionOffset ? { ...data, options: [...new Map([...(previous?.options ?? []), ...(data.options ?? [])].map(option => [`${option.source}:${option.pages}:${option.isbn ?? ''}:${option.publisher ?? ''}`, option])).values()] } : data)
+        const key = `${bookId}:${lookupIsbn ?? 'saved'}:${browseEditions}`
+        const keepPrevious = editionOffset > 0 || (data.incomplete && pageResultKey.current === key)
+        pageResultKey.current = key
+        setPageCounts(previous => keepPrevious ? { ...data, options: [...new Map([...(previous?.options ?? []), ...(data.options ?? [])].map(option => [`${option.source}:${option.pages}:${option.isbn ?? ''}:${option.publisher ?? ''}`, option])).values()] } : data)
         // Prefill only an untouched draft for a new session; never change saved settings.
         if (!session && !browseEditions && !totalTouched.current && data.suggested != null && data.suggested >= Number(baselineRef.current || 0)) setTotal(String(data.suggested))
       } catch (error) {
-        if (!controller.signal.aborted) setPageCounts(previous => ({ suggested: null, options: editionOffset ? previous?.options ?? [] : [], nextOffset: editionOffset || null, message: error instanceof Error ? error.message : 'Page count lookup is unavailable. Enter it manually or try again.', warnings: [] }))
+        if (!controller.signal.aborted) setPageCounts(previous => ({ suggested: null, options: pageResultKey.current === `${bookId}:${lookupIsbn ?? 'saved'}:${browseEditions}` ? previous?.options ?? [] : [], nextOffset: editionOffset || null, message: error instanceof Error ? error.message : 'Page count lookup is unavailable. Enter it manually or try again.', warnings: [] }))
       } finally { if (!controller.signal.aborted) setLookingUpPages(false) }
     })()
     return () => controller.abort()
@@ -89,16 +93,16 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
   const pageCountHelp = session?.totalPages != null && !browseEditions ? <button type="button" disabled={busy} className="text-xs text-blue-600 underline" onClick={chooseEdition}>Choose another edition</button> : <div className="text-xs text-gray-500 space-y-2">
     {browseEditions && <div className="space-y-2"><Input label="Edition ISBN (optional)" placeholder="e.g. 978-0593513651" maxLength={32} value={isbnSearch} onChange={event => setIsbnSearch(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); searchEdition() } }} /><button type="button" disabled={busy || lookingUpPages} className="text-blue-600 underline" onClick={searchEdition}>Search edition ISBN</button><p>Search your copy’s ISBN, or leave it blank to browse by title. This won’t change the ISBN saved on your book.</p></div>}
     {lookingUpPages && <p role="status">Looking up edition page counts…</p>}
-    {pageCounts && (!lookingUpPages || editionOffset > 0) && <>
+    {pageCounts && <>
       <p>{pageCounts.message}</p>
       {pageCounts.warnings?.map(warning => <p key={warning} className="text-amber-700">{warning}</p>)}
-      {!!pageCounts.options?.length && <ul className="max-h-64 overflow-y-auto space-y-2">{pageCounts.options.map((option, index) => <li key={index} className="flex flex-wrap items-baseline gap-x-2"><button type="button" className="text-blue-600 underline" disabled={busy || lookingUpPages} onClick={() => setDraftTotal(String(option.pages))}>Use {option.pages} pages</button><span>{option.title} · {option.source}{option.exactIsbn ? ' · ISBN match' : ' · Edition suggestion'}{option.publisher ? ` · ${option.publisher}` : ''}{option.year ? ` · ${option.year}` : ''}{option.isbn ? ` · ISBN ${option.isbn}` : ''}</span></li>)}</ul>}
+      {!!pageCounts.options?.length && <ul className="max-h-64 overflow-y-auto space-y-3">{pageCounts.options.map((option, index) => <li key={index} className="flex flex-wrap items-baseline gap-x-2"><button type="button" className="text-blue-600 underline" disabled={busy || lookingUpPages} onClick={() => setDraftTotal(String(option.pages))}>Use {option.pages} pages</button>{' '}<span>{option.title} · {option.source}{option.exactIsbn ? ' · ISBN match' : ' · Edition suggestion'}{option.publisher ? ` · ${option.publisher}` : ''}{option.year ? ` · ${option.year}` : ''}{option.isbn ? ` · ISBN ${option.isbn}` : ''}</span></li>)}</ul>}
       {pageCounts.nextOffset != null && <button type="button" className="text-blue-600 underline" disabled={busy || lookingUpPages} onClick={() => { setEditionOffset(pageCounts.nextOffset!); setPageLookupAttempt(value => value + 1) }}>Load more editions</button>}
       <p>Suggestions are saved only when you start reading or save page settings. You can always edit the count.</p>
       {!browseEditions && <button type="button" className="text-blue-600 underline mr-3" disabled={busy} onClick={chooseEdition}>Find other editions</button>}
       <button type="button" className="text-blue-600 underline" disabled={busy} onClick={() => setPageLookupAttempt(value => value + 1)}>Retry page count lookup</button>
     </>}
-    {browseEditions && session?.totalPages != null && <button type="button" className="text-blue-600 underline" disabled={busy} onClick={() => { setDraftTotal(String(session.totalPages)); setBrowseEditions(false); setEditionOffset(0); setLookupIsbn(null); setIsbnSearch('') }}>Keep current edition</button>}
+    {browseEditions && session?.totalPages != null && <button type="button" className="block mt-3 text-blue-600 underline" disabled={busy} onClick={() => { setDraftTotal(String(session.totalPages)); setBrowseEditions(false); setEditionOffset(0); setLookupIsbn(null); setIsbnSearch('') }}>Keep current edition</button>}
   </div>
 
   const progress = session ? readingProgress(session) : null
