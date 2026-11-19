@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLibrary } from "@/lib/hooks/useLibrary";
-import { compareAuthors } from "@/lib/books/author-sort";
 import { CoverEnrichment } from "@/components/library/cover-enrichment";
-import { AuthorCard } from "@/components/library/author-card";
+import { AlphabeticalAuthors } from "@/components/library/alphabetical-authors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
@@ -27,7 +26,7 @@ export default function LibraryPage() {
       author.books.some((book: any) =>
         book.title.toLowerCase().includes(search.toLowerCase())
       )
-  ).sort(compareAuthors);
+  );
 
   if (loading && !authors.length) {
     return <div className="text-center py-12">Loading...</div>;
@@ -99,15 +98,7 @@ export default function LibraryPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredAuthors.map((author) => (
-            <AuthorCard
-              key={author.id}
-              author={author}
-              groupBySeries={groupBySeries}
-            />
-          ))}
-        </div>
+        <AlphabeticalAuthors authors={filteredAuthors} groupBySeries={groupBySeries} />
       )}
       </div>
     </>
