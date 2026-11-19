@@ -46,7 +46,7 @@ export default function SeriesPage() {
   const reload = useCallback(async () => {
     const data = await request<{ series: ChecklistSeries[] }>('/api/series')
     setSeries(data.series)
-    setSelected(current => data.series.some(s => s.id === current) ? current : data.series[0]?.id ?? null)
+    setSelected(current => data.series.some(s => s.id === current) ? current : null)
   }, [])
   useEffect(() => {
     let active = true

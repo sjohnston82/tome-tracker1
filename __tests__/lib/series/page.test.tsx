@@ -14,6 +14,12 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 describe('series checklist interface', () => {
+  it('starts with no series selected', async () => {
+    render(<SeriesPage />)
+    const button = await screen.findByRole('button', { name: /A Series/ })
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('First novella')).toBeNull()
+  })
   it('expands details immediately after the clicked series and collapses on a second click', async () => {
     const other = { ...data, id: 'series-two', name: 'Another Series', entries: [] }
     fetcher.mockImplementation(async (url: string) => ({ ok: true, status: 200, json: async () => url === '/api/series' ? { series: [data, other] } : url === '/api/library/sync' ? { authors: [] } : { import: null } }))
@@ -28,25 +34,26 @@ describe('series checklist interface', () => {
   })
   it('shows owned omnibus contents, missing works, and unknown years', async () => {
     render(<SeriesPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /A Series/ }))
     expect(await screen.findByText('First novella')).toBeDefined()
     expect(screen.getByText('Second novel')).toBeDefined()
     expect(screen.getByText(/Year unknown/)).toBeDefined()
     expect(screen.getByRole('link', { name: 'An Omnibus' }).getAttribute('href')).toBe('/library/book/edition')
   })
   it('filters missing works without changing ownership', async () => {
-    render(<SeriesPage />); await screen.findByText('First novella')
+    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByText('First novella')
     fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'missing' } })
     expect(screen.queryByText('First novella')).toBeNull()
     expect(screen.getByText('Second novel')).toBeDefined()
     expect(fetcher.mock.calls.every(call => !call[1]?.method || call[1].method === 'GET')).toBe(true)
   })
   it('updates the physical edition reading status rather than the literary work', async () => {
-    render(<SeriesPage />); await screen.findByText('First novella')
+    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByText('First novella')
     fireEvent.change(screen.getByLabelText('Reading status for An Omnibus'), { target: { value: 'READING' } })
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/books/edition', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ readingStatus: 'READING' }) })))
   })
   it('offers existing-work membership and manual publication/order corrections', async () => {
-    render(<SeriesPage />); await screen.findByText('First novella')
+    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByText('First novella')
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0])
     expect(screen.getByLabelText('Original publication year')).toBeDefined()
     expect(screen.getByLabelText('Series position')).toBeDefined()
