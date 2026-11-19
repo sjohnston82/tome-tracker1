@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CoverPicker } from '@/components/library/cover-picker';
 import { BookCover } from '@/components/library/book-cover';
+import { ReadingTracker } from '@/components/library/reading-tracker';
 
 export default function BookDetailPage() {
   const params = useParams();
@@ -119,6 +120,7 @@ export default function BookDetailPage() {
           </div>
         </div>
         <CoverPicker book={book} onSaved={refresh} />
+        <div className="border rounded-xl p-4 mb-5 space-y-3"><h2 className="font-semibold text-lg">Reading log</h2><ReadingTracker bookId={book.id} status={book.readingStatus ?? 'UNKNOWN'} onChanged={refresh} /></div>
         <label className="block text-sm mb-5">Reading status
           <select aria-label="Reading status" className="block border rounded-lg px-3 py-2 mt-2 bg-white dark:bg-gray-900" value={book.readingStatus ?? 'UNKNOWN'} disabled={saving} onChange={async event => {
             setSaving(true);

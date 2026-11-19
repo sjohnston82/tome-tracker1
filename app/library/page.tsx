@@ -8,6 +8,7 @@ import { AlphabeticalAuthors } from "@/components/library/alphabetical-authors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
+import { CurrentlyReading } from '@/components/library/currently-reading';
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -67,6 +68,7 @@ export default function LibraryPage() {
         <progress aria-label="Owned books read" value={reading.READ} max={stats?.bookCount || 1} className="w-full h-2 accent-blue-600" />
         <button onClick={() => router.push('/series')} className="text-sm text-blue-600 mt-2 hover:underline">Explore series and missing books →</button>
       </section>
+      <CurrentlyReading authors={authors} onChanged={sync} />
       {isFromCache && (
         <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 px-4 py-2 rounded-lg text-sm mb-4">
           📴 Viewing cached data from{" "}

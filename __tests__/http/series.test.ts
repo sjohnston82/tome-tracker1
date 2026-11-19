@@ -70,4 +70,23 @@ describe('series HTTP flow with actual signed sessions', () => {
     expect(await prisma.book.findUnique({ where: { id: book.id } })).toMatchObject({ coverUrl: null, coverLocked: true })
     expect(await prisma.book.count({ where: { userId: owner } })).toBe(1)
   })
+
+  it('tracks a new read through signed HTTP sessions without exposing it to another user', async () => {
+    const book = await prisma.book.findFirstOrThrow({ where: { userId: owner } })
+    await call(`/api/books/${book.id}`, 'PATCH', { readingStatus: 'UNREAD' })
+    const path = `/api/books/${book.id}/reading`
+    expect((await call(path, 'GET', undefined, otherCookie)).status).toBe(404)
+    expect((await call(path, 'POST', { action: 'start' }, '')).status).toBe(401)
+    const started = await call(path, 'POST', { action: 'start', page: 0, totalPages: 100 })
+    expect(started.status).toBe(200)
+    let { session } = await started.json()
+    expect(session.startedAt).not.toBeNull()
+    const logged = await call(path, 'POST', { action: 'log', sessionId: session.id, version: session.version, requestId: crypto.randomUUID(), page: 20, occurredAt: new Date().toISOString(), note: 'Chapter two' })
+    expect(logged.status).toBe(200)
+    session = (await logged.json()).session
+    expect(session.logs[0]).toMatchObject({ page: 20, note: 'Chapter two' })
+    expect((await call(path, 'POST', { action: 'log', sessionId: session.id, version: session.version, requestId: crypto.randomUUID(), page: 100, occurredAt: new Date().toISOString(), finish: true })).status).toBe(200)
+    expect((await prisma.book.findUniqueOrThrow({ where: { id: book.id } })).readingStatus).toBe('READ')
+    expect((await (await call(path)).json()).session.finishedAt).not.toBeNull()
+  })
 })

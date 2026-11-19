@@ -73,6 +73,7 @@ model Book {
   author Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
   work   Work?  @relation(fields: [workId], references: [id], onDelete: SetNull)
   contents BookContent[]
+  readingSessions ReadingSession[]
 
   @@unique([userId, isbn13])
   @@unique([userId, importKey])
@@ -86,6 +87,36 @@ enum BookSource {
   SCAN
   MANUAL
   IMPORT
+}
+
+model ReadingSession {
+  id           String @id @default(uuid())
+  bookId       String @map("book_id")
+  baselinePage Int @default(0) @map("baseline_page")
+  totalPages   Int? @map("total_pages")
+  startedAt    DateTime? @map("started_at")
+  trackedAt    DateTime @default(now()) @map("tracked_at")
+  finishedAt   DateTime? @map("finished_at")
+  version      Int @default(0)
+  book         Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  logs         ReadingLog[]
+  @@index([bookId, trackedAt])
+  @@map("reading_sessions")
+}
+
+model ReadingLog {
+  id           String @id @default(uuid())
+  sessionId    String @map("session_id")
+  requestId    String @map("request_id")
+  page         Int
+  occurredAt   DateTime @map("occurred_at")
+  note         String @default("")
+  isCompletion Boolean @default(false) @map("is_completion")
+  createdAt    DateTime @default(now()) @map("created_at")
+  session      ReadingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  @@unique([sessionId, requestId])
+  @@index([sessionId, occurredAt])
+  @@map("reading_logs")
 }
 
 model PasswordResetToken {
