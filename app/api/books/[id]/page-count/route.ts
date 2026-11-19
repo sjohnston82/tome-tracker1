@@ -10,6 +10,6 @@ export const GET = withAuth(async (request, session) => {
     const book = await prisma.book.findFirst({ where: { id, userId: session.userId }, include: { author: true } })
     if (!book) return errorResponse('NOT_FOUND', 'Book not found.', 404)
     if (!checkRateLimit(`page-count:${session.userId}`, 12, 60000).allowed) return errorResponse('RATE_LIMITED', 'Please wait a minute before looking up page counts again.', 429)
-    return successResponse(await lookupPageCounts(book.title, book.author.name, book.isbn13 ?? book.isbn10))
+    return successResponse(await lookupPageCounts(book.title, book.author.name, book.isbn13 ?? book.isbn10, request.nextUrl.searchParams.get('editions') === 'all'))
   } catch (error) { return handleApiError(error) }
 })

@@ -1,5 +1,7 @@
 # Forward reading progress
 
+To replace an edition length, open **Page settings → Choose another edition**, select a suggestion, then **Save page settings**. **Keep current edition** restores the saved value without writing. Before a session is started, **Find other editions** broadens the suggestions. These explicit searches use `?editions=all` on the page-count endpoint to include other editions even when an ISBN match exists. Automatic lookup still preserves saved lengths.
+
 Library highlights physical editions marked Currently Reading above the alphabet list. Each card provides a page baseline, optional edition page count, a timestamped log with notes, and explicit completion. The same tracker is on book details; an Unread book can be started there. The page bar is hidden when the edition's total pages are unknown. Progress history can be corrected or removed; page settings can also be corrected. Removing completion explicitly reopens the book.
 
 The additive migration creates reading sessions and their logs without updating books or backfilling history. An existing Read book stays undated until its owner deliberately initiates a future read by changing its status to Unread. An existing Currently Reading book starts with an unknown reading-start date and a user-entered baseline. Pages before that baseline are not credited. A new Unread read starting at page zero records a start date. Completion is dated only by the explicit Finish book / Save completion action; changing the ordinary reading-status dropdown does not manufacture a completion event.

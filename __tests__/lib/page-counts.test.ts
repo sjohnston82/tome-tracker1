@@ -6,6 +6,12 @@ const google = (pages: number, id = isbn) => ({ items: [{ volumeInfo: { title: '
 const edition = (pages: number) => ({ title: 'A Novel', number_of_pages: pages, isbn_13: [isbn], publishers: ['Publisher'], publish_date: '2000' })
 const mock = (handler: (url: string) => unknown) => vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, status: 200, json: async () => handler(url) })))
 describe('edition page-count suggestions', () => {
+  it('can explicitly browse other editions even when an exact ISBN count exists', async () => {
+    mock(url => url.includes('googleapis') ? { items: [] } : url.includes('search.json') ? { docs: [{ key: '/works/OL1W', title: 'A Novel', author_name: ['An Author'] }] } : url.includes('/editions') ? { entries: [{ ...edition(512), isbn_13: ['9780000000002'] }] } : edition(480))
+    const result = await lookupPageCounts('A Novel', 'An Author', isbn, true)
+    expect(result.options.map(option => option.pages)).toEqual([480, 512])
+    expect(result.options[1].exactIsbn).toBe(false)
+  })
   it('prefers consistent counts with verified ISBN identifiers', async () => {
     mock(url => url.includes('googleapis') ? google(480) : edition(480))
     const result = await lookupPageCounts('A Novel', 'An Author', isbn)

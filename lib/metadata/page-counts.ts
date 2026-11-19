@@ -12,7 +12,7 @@ const googleSchema = z.object({ volumeInfo: z.object({ title: z.string(), author
 const titleKey = (title: string) => title.normalize('NFKD').toLowerCase().replace(/\bcolour\b/g, 'color').replace(/[^\p{L}\p{N}]/gu, '')
 const list = (data: unknown, field: string): unknown[] => typeof data === 'object' && data !== null && Array.isArray((data as Record<string, unknown>)[field]) ? (data as Record<string, unknown>)[field] as unknown[] : []
 
-export async function lookupPageCounts(title: string, author: string, isbn?: string | null): Promise<PageCountResult> {
+export async function lookupPageCounts(title: string, author: string, isbn?: string | null, includeAlternatives = false): Promise<PageCountResult> {
   const options: PageCountOption[] = [], warnings: string[] = []
   const authors = authorPeople(author)
   const matches = (candidateTitle: string, credits: string[]) => titleKey(candidateTitle) === titleKey(title) && authors.every(person => credits.some(credit => sameAuthor(person, credit)))
@@ -65,7 +65,7 @@ export async function lookupPageCounts(title: string, author: string, isbn?: str
     } catch { warnings.push('Open Library page counts could not be loaded.') }
   }
   if (isbn) await Promise.all([openLibrary(true), google(true)])
-  if (!options.some(option => option.exactIsbn)) {
+  if (includeAlternatives || !options.some(option => option.exactIsbn)) {
     if (isbn) await new Promise(resolve => setTimeout(resolve, 1100))
     await Promise.all([openLibrary(false), google(false)])
   }
