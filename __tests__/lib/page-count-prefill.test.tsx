@@ -5,6 +5,26 @@ const suggestion = { suggested: 480, options: [{ pages: 480, title: 'A Novel', s
 const active = { id: 'session', baselinePage: 224, totalPages: 512, startedAt: null, trackedAt: '2026-11-19T15:00:00Z', finishedAt: null, version: 0, logs: [] }
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 describe('page-count draft prefilling', () => {
+  it('searches a specific edition ISBN and can append more editions without saving', async () => {
+    const option = { pages: 608, title: 'East of Eden', source: 'Open Library', exactIsbn: true, isbn: '9780593513651' }
+    const fetcher = vi.fn(async (url: string) => ({ ok: true, json: async () => !url.includes('page-count') ? { session: active } : url.includes('offset=30') ? { suggested: null, options: [{ ...option, pages: 640, isbn: 'another-edition' }], message: 'More editions', warnings: [], nextOffset: null } : url.includes('isbn=') ? { suggested: 608, options: [option], message: 'Specific ISBN', warnings: [], nextOffset: 30 } : suggestion }))
+    const changed = vi.fn()
+    vi.stubGlobal('fetch', fetcher)
+    render(<ReadingTracker bookId="book" status="READING" onChanged={changed} />)
+    await screen.findByText('Page 224 of 512')
+    fireEvent.click(screen.getByText('Page settings'))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose another edition' }))
+    await screen.findByRole('button', { name: 'Use 480 pages' })
+    fireEvent.change(screen.getByLabelText('Edition ISBN (optional)'), { target: { value: '978-0593513651' } })
+    fireEvent.keyDown(screen.getByLabelText('Edition ISBN (optional)'), { key: 'Enter' })
+    await screen.findByRole('button', { name: 'Use 608 pages' })
+    fireEvent.click(screen.getByRole('button', { name: 'Load more editions' }))
+    await screen.findByRole('button', { name: 'Use 640 pages' })
+    expect(screen.getByRole('button', { name: 'Use 608 pages' })).toBeDefined()
+    expect(changed).not.toHaveBeenCalled()
+    expect((screen.getByLabelText('Total pages (optional)') as HTMLInputElement).value).toBe('512')
+    expect(fetcher.mock.calls.some(([url]) => url.includes('isbn=978-0593513651'))).toBe(true)
+  })
   it('reopens alternatives for a saved count and only persists a replacement on save', async () => {
     const changed = vi.fn().mockResolvedValue(undefined)
     const fetcher = vi.fn(async (url: string, init?: RequestInit) => ({ ok: true, json: async () => url.includes('page-count') ? suggestion : { session: init?.method === 'POST' ? { ...active, totalPages: 480, version: 1 } : active } }))

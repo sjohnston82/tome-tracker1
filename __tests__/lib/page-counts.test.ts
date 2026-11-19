@@ -6,6 +6,13 @@ const google = (pages: number, id = isbn) => ({ items: [{ volumeInfo: { title: '
 const edition = (pages: number) => ({ title: 'A Novel', number_of_pages: pages, isbn_13: [isbn], publishers: ['Publisher'], publish_date: '2000' })
 const mock = (handler: (url: string) => unknown) => vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, status: 200, json: async () => handler(url) })))
 describe('edition page-count suggestions', () => {
+  it('loads later edition batches rather than repeating the first results', async () => {
+    mock(url => url.includes('googleapis') ? { items: [] } : url.includes('search.json') ? { docs: [{ key: '/works/OL1W', title: 'A Novel', author_name: ['An Author'] }] } : { entries: Array.from({ length: 30 }, (_, i) => ({ ...edition(608 + i), isbn_13: [`edition-${i}`] })) })
+    const result = await lookupPageCounts('A Novel', 'An Author', null, true, 30)
+    expect(result.options).toHaveLength(30)
+    expect(result.nextOffset).toBe(60)
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('offset=30'))).toBe(true)
+  })
   it('can explicitly browse other editions even when an exact ISBN count exists', async () => {
     mock(url => url.includes('googleapis') ? { items: [] } : url.includes('search.json') ? { docs: [{ key: '/works/OL1W', title: 'A Novel', author_name: ['An Author'] }] } : url.includes('/editions') ? { entries: [{ ...edition(512), isbn_13: ['9780000000002'] }] } : edition(480))
     const result = await lookupPageCounts('A Novel', 'An Author', isbn, true)

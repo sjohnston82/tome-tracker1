@@ -1,5 +1,7 @@
 # Forward reading progress
 
+The edition selector includes an optional ISBN search (hyphens and spaces accepted) and **Load more editions**. A custom search is read-only and never replaces the book's saved ISBN. Clearing the search ISBN browses by title/author. Explicit browsing returns larger batches, appends distinct options, and can examine up to 300 editions per matched Open Library work. Providers may not yet list recent tie-in editions; the manually editable Total pages field remains available. Pressing Enter in the ISBN field searches rather than submitting page settings.
+
 To replace an edition length, open **Page settings → Choose another edition**, select a suggestion, then **Save page settings**. **Keep current edition** restores the saved value without writing. Before a session is started, **Find other editions** broadens the suggestions. These explicit searches use `?editions=all` on the page-count endpoint to include other editions even when an ISBN match exists. Automatic lookup still preserves saved lengths.
 
 Library highlights physical editions marked Currently Reading above the alphabet list. Each card provides a page baseline, optional edition page count, a timestamped log with notes, and explicit completion. The same tracker is on book details; an Unread book can be started there. The page bar is hidden when the edition's total pages are unknown. Progress history can be corrected or removed; page settings can also be corrected. Removing completion explicitly reopens the book.
