@@ -10,11 +10,15 @@ import { Input } from "@/components/ui/input";
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
 import { CurrentlyReading } from '@/components/library/currently-reading';
 
+import { usePreferences } from "@/lib/preferences";
+
 export default function LibraryPage() {
+  const { preferences, ready } = usePreferences();
   const router = useRouter();
   const { loading, error, authors, stats, sync, isFromCache, lastSynced } = useLibrary();
   const [search, setSearch] = useState("");
-  const [groupBySeries, setGroupBySeries] = useState(false);
+  const [seriesOverride, setSeriesOverride] = useState<boolean | null>(null);
+  const groupBySeries = seriesOverride ?? preferences.groupBySeries;
   const reading = authors.flatMap(author => author.books).reduce((counts, book) => {
     const status = book.readingStatus || 'UNKNOWN';
     if (status in counts) counts[status as keyof typeof counts]++;
@@ -39,7 +43,7 @@ export default function LibraryPage() {
   return (
     <>
       <OnboardingModal />
-      <CoverEnrichment authors={authors} onUpdated={sync} />
+      <CoverEnrichment authors={authors} onUpdated={sync} enabled={ready && preferences.autoCovers} />
       <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -68,7 +72,7 @@ export default function LibraryPage() {
         <progress aria-label="Owned books read" value={reading.READ} max={stats?.bookCount || 1} className="w-full h-2 accent-blue-600" />
         <button onClick={() => router.push('/series')} className="text-sm text-blue-600 mt-2 hover:underline">Explore series and missing books →</button>
       </section>
-      <CurrentlyReading authors={authors} onChanged={sync} />
+      {preferences.showCurrentlyReading && <CurrentlyReading authors={authors} onChanged={sync} />}
       {isFromCache && (
         <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 px-4 py-2 rounded-lg text-sm mb-4">
           📴 Viewing cached data from{" "}
@@ -86,7 +90,7 @@ export default function LibraryPage() {
         <input
           type="checkbox"
           checked={groupBySeries}
-          onChange={(event) => setGroupBySeries(event.target.checked)}
+          onChange={(event) => setSeriesOverride(event.target.checked)}
         />
         Show series details
       </label>
@@ -100,7 +104,7 @@ export default function LibraryPage() {
           )}
         </div>
       ) : (
-        <AlphabeticalAuthors authors={filteredAuthors} groupBySeries={groupBySeries} />
+        <AlphabeticalAuthors key={`${ready}:${preferences.expandAuthors}`} authors={filteredAuthors} groupBySeries={groupBySeries} defaultExpanded={preferences.expandAuthors} bookSort={preferences.bookSort} />
       )}
       </div>
     </>

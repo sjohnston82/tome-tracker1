@@ -6,7 +6,10 @@ import { BarcodeScanner } from "@/components/scanner/barcode-scanner";
 import { ScanResult } from "@/components/scanner/scan-result";
 import { OfflineGuard } from "@/components/offline/offline-guard";
 
+import { usePreferences } from "@/lib/preferences";
+
 export default function ScanPage() {
+  const { preferences } = usePreferences();
   const router = useRouter();
   const [active, setActive] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -69,7 +72,7 @@ export default function ScanPage() {
 
     const response = await fetch("/api/books", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Auto-Covers": preferences.autoCovers ? "on" : "off" },
       body: JSON.stringify(payload),
     });
 

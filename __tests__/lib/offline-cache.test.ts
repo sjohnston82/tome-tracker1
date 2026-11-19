@@ -36,7 +36,7 @@ describe('offline cache account isolation and settings cleanup', () => {
     vi.stubGlobal('caches', { delete: remove })
     await clearCache()
     expect((await getCachedLibrary('owner')).books).toEqual([])
-    expect(remove.mock.calls.map(call => call[0])).toEqual(['library-sync', 'cover-images', 'google-covers'])
+    expect(remove.mock.calls.map(call => call[0])).toEqual(['library-sync', 'cover-images', 'google-covers', 'offline-covers'])
   })
   it('rolls back a failed sync instead of partially clearing a valid cache', async () => {
     await cacheLibraryData(authors, books, 'owner')

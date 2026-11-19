@@ -7,6 +7,7 @@ vi.mock('@/lib/hooks/useTheme', async () => {
   return { useTheme: () => { const [theme, change] = useState('system'); return { theme, setTheme: (value: string) => { mocks.theme(value); change(value) }, storageError: null } } }
 })
 vi.mock('@/lib/hooks/useOfflineLibrary', () => ({ useOfflineLibrary: () => ({ isOnline: mocks.online, cacheStats: { bookCount: 258, authorCount: 72, lastSync: null }, syncAndCache: mocks.sync, clearLocalCache: mocks.clear }) }))
+vi.mock('@/components/settings/settings-extras', () => ({ PreferenceSettings: () => null, BackupSettings: () => null, SecuritySettings: () => null, OfflineCoverSettings: () => null, DiagnosticsSettings: () => null }))
 import SettingsPage from '@/app/settings/page'
 beforeEach(() => { vi.clearAllMocks(); mocks.online = true; mocks.sync.mockResolvedValue(true); mocks.clear.mockResolvedValue(undefined); vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true })) })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })

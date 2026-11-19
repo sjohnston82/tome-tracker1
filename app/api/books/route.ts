@@ -9,7 +9,7 @@ export const POST = withAuth(async (request: NextRequest, session) => {
     const body = await request.json()
     const input = createBookSchema.parse(body)
 
-    const result = await createBook(session.userId, input)
+    const result = await createBook(session.userId, input, request.headers.get("X-Auto-Covers") !== "off")
 
     if (!result.success) {
       if (result.error === 'DUPLICATE_ISBN') {

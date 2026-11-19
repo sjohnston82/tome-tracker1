@@ -12,7 +12,10 @@ interface DuplicateMatch {
   score: number;
 }
 
+import { usePreferences } from "@/lib/preferences";
+
 export default function ManualAddPage() {
+  const { preferences } = usePreferences();
   const router = useRouter();
   const [form, setForm] = useState({
     title: "",
@@ -86,7 +89,7 @@ export default function ManualAddPage() {
 
       const response = await fetch("/api/books", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Auto-Covers": preferences.autoCovers ? "on" : "off" },
         body: JSON.stringify(payload),
       });
       const data = await response.json();

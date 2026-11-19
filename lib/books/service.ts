@@ -3,7 +3,7 @@ import { CreateBookInput, UpdateBookInput } from './validation'
 import { normalizeToIsbn13 } from './isbn'
 import { findBookCover } from '@/lib/metadata/covers'
 
-export async function createBook(userId: string, input: CreateBookInput) {
+export async function createBook(userId: string, input: CreateBookInput, autoCovers = true) {
   const isbn13 = input.isbn13 ? normalizeToIsbn13(input.isbn13) : null
 
   if (isbn13) {
@@ -31,7 +31,7 @@ export async function createBook(userId: string, input: CreateBookInput) {
       isbn10: input.isbn10,
       publisher: input.publisher,
       publicationYear: input.publicationYear,
-      coverUrl: input.coverUrl || await findBookCover(input.title, input.authorName, isbn13),
+      coverUrl: input.coverUrl || (autoCovers ? await findBookCover(input.title, input.authorName, isbn13) : null),
       seriesName: input.seriesName,
       seriesNumber: input.seriesNumber,
       readingStatus: input.readingStatus ?? 'UNKNOWN',

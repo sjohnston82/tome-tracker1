@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { usePreferences } from '@/lib/preferences'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { readingProgress, type ProgressEntry, type ProgressSession } from '@/lib/reading/progress'
@@ -10,6 +11,9 @@ const localTime = (date = new Date()) => new Date(date.getTime() - date.getTimez
 const displayTime = (value: string) => new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
 export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; status: string; onChanged: () => Promise<void> }) {
+  const { preferences } = usePreferences()
+  const [unit, setUnit] = useState<'pages' | 'percent' | null>(null)
+  const progressUnit = unit ?? preferences.progressUnit
   const [session, setSession] = useState<ProgressSession | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -122,11 +126,12 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
     finally { setBusy(false) }
   }
   const beginLog = (complete = false, entry?: ProgressEntry) => {
-    setPage(String(entry?.page ?? progress?.currentPage ?? 0)); setTime(entry ? localTime(new Date(entry.occurredAt)) : localTime()); setNote(entry?.note ?? ''); setFinish(complete); setEditing(entry ?? null); setShowForm(true)
+    const currentPage = entry?.page ?? progress?.currentPage ?? 0; setPage(String(progressUnit === 'percent' && session?.totalPages ? Number((currentPage / session.totalPages * 100).toFixed(6)) : currentPage)); setTime(entry ? localTime(new Date(entry.occurredAt)) : localTime()); setNote(entry?.note ?? ''); setFinish(complete); setEditing(entry ?? null); setShowForm(true)
   }
   const submitLog = () => {
     if (!session) return
-    const body = { sessionId: session.id, version: session.version, page: Number(page), occurredAt: new Date(time).toISOString(), note }
+    const enteredPage = progressUnit === 'percent' && session.totalPages ? Math.round(Number(page) * session.totalPages / 100) : Number(page)
+    const body = { sessionId: session.id, version: session.version, page: enteredPage, occurredAt: new Date(time).toISOString(), note }
     if (editing) { void save({ ...body, action: 'edit', entryId: editing.id }); return }
     const signature = JSON.stringify({ ...body, finish })
     if (pending.current.signature !== signature) pending.current = { signature, id: crypto.randomUUID() }
@@ -145,7 +150,7 @@ export function ReadingTracker({ bookId, status, onChanged }: { bookId: string; 
       {session.finishedAt && <p className="text-sm text-green-700">Finished {displayTime(session.finishedAt)}</p>}
       {!session.finishedAt && !showForm && <div className="flex flex-wrap gap-2"><Button size="sm" disabled={busy} onClick={() => beginLog()}>Log progress</Button><Button size="sm" variant="secondary" disabled={busy} onClick={() => beginLog(true)}>Finish book</Button></div>}
       {showForm && <form className="border rounded-lg p-3 space-y-3" onSubmit={event => { event.preventDefault(); submitLog() }}>
-        <div className="grid sm:grid-cols-2 gap-3"><Input label="Stopped on page" type="number" required min={session.baselinePage} max={session.totalPages ?? 1000000} value={page} onChange={event => setPage(event.target.value)} /><Input label="Time stopped" type="datetime-local" required value={time} onChange={event => setTime(event.target.value)} /></div>
+        <div className="grid sm:grid-cols-2 gap-3"><div>{session.totalPages && <label className="block text-sm mb-2">Progress entry <select aria-label="Progress entry unit" value={progressUnit} disabled={busy} onChange={event => { const next = event.target.value as 'pages' | 'percent'; if (page) setPage(String(next === 'percent' ? Number((Number(page) / session.totalPages! * 100).toFixed(6)) : Math.round(Number(page) * session.totalPages! / 100))); setUnit(next); }}><option value="pages">Pages</option><option value="percent">Percentage</option></select></label>}<Input label={progressUnit === 'percent' && session.totalPages ? 'Percent read' : 'Stopped on page'} type="number" required step={progressUnit === 'percent' && session.totalPages ? 'any' : 1} min={progressUnit === 'percent' && session.totalPages ? Number((session.baselinePage / session.totalPages * 100).toFixed(6)) : session.baselinePage} max={progressUnit === 'percent' && session.totalPages ? 100 : session.totalPages ?? 1000000} value={page} onChange={event => setPage(event.target.value)} />{progressUnit === 'percent' && session.totalPages && <p className="text-xs text-gray-500">Saved as page {Math.round(Number(page) * session.totalPages / 100)} of {session.totalPages}.</p>}</div><Input label="Time stopped" type="datetime-local" required value={time} onChange={event => setTime(event.target.value)} /></div>
         <Input label="Reading note (optional)" maxLength={2000} value={note} onChange={event => setNote(event.target.value)} />
         {!editing && <label className="flex gap-2 text-sm items-center"><input type="checkbox" checked={finish} onChange={event => setFinish(event.target.checked)} />I finished this book</label>}
         <div className="flex gap-2"><Button size="sm" disabled={busy} type="submit">{editing ? 'Save correction' : finish ? 'Save completion' : 'Save progress'}</Button><Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => { setShowForm(false); setEditing(null) }}>Cancel</Button></div>

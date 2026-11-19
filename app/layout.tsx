@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth/session";
 import { ThemeProvider } from '@/lib/hooks/useTheme';
 import { THEME_BOOTSTRAP } from '@/lib/theme';
 import { CacheOwnerProvider } from '@/lib/offline/owner';
+import { PreferencesProvider } from "@/lib/preferences";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,8 +26,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#3b82f6",
   viewportFit: "cover",
 };
@@ -49,11 +48,12 @@ export default async function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider><CacheOwnerProvider userId={session?.userId ?? null}>
+        <PreferencesProvider>
         <OfflineBanner />
         <Header user={user} />
         <main className="min-h-screen pb-20 sm:pb-8">{children}</main>
         {user && <MobileNav />}
-        </CacheOwnerProvider></ThemeProvider>
+        </PreferencesProvider></CacheOwnerProvider></ThemeProvider>
       </body>
     </html>
   );

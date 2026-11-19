@@ -47,4 +47,17 @@ describe('reading progress interface', () => {
     await screen.findByText('6 pages logged since your starting point')
     expect(JSON.parse(fetcher.mock.calls.find(([, init]) => init?.method === 'POST')![1]!.body as string)).toMatchObject({ action: 'log', page: 230, note: 'Chapter five', finish: false, requestId: expect.any(String), occurredAt: expect.stringMatching(/Z$/) })
   })
+  it('converts percentage entries to the nearest page without changing the baseline', async () => {
+    const changed = vi.fn();
+    const fetcher = vi.fn(async (_url: string, options?: RequestInit) => ({ ok: true, json: async () => ({ session }) }));
+    vi.stubGlobal('fetch', fetcher);
+    render(<ReadingTracker bookId="active" status="READING" onChanged={changed} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Log progress' }));
+    fireEvent.change(screen.getByLabelText('Progress entry unit'), { target: { value: 'percent' } });
+    fireEvent.change(screen.getByLabelText('Percent read'), { target: { value: '50' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save progress' }));
+    await waitFor(() => expect(changed).toHaveBeenCalled());
+    expect(JSON.parse(fetcher.mock.calls.find(([, init]) => init?.method === 'POST')![1]!.body as string)).toMatchObject({ page: 240, action: 'log' });
+  });
+
 })

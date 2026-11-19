@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-export function CoverEnrichment({ authors, onUpdated }: { authors: { books: { id: string; coverUrl?: string | null; coverLocked?: boolean }[] }[]; onUpdated: () => Promise<void> }) {
+export function CoverEnrichment({ authors, onUpdated, enabled = true }: { enabled?: boolean; authors: { books: { id: string; coverUrl?: string | null; coverLocked?: boolean }[] }[]; onUpdated: () => Promise<void> }) {
   const [message, setMessage] = useState('')
   const [retry, setRetry] = useState(0)
   const [running, setRunning] = useState(false)
+  const manualRetry = useRef(0)
   const attempted = useRef(new Set<string>())
   const refresh = useRef(onUpdated)
   refresh.current = onUpdated
@@ -13,7 +14,8 @@ export function CoverEnrichment({ authors, onUpdated }: { authors: { books: { id
   const signature = authors.flatMap(a => a.books.map(b => b.id)).sort().join(',')
   const missing = authors.some(a => a.books.some(b => !b.coverUrl && !b.coverLocked))
   useEffect(() => {
-    if (!signature || !missing || !navigator.onLine || attempted.current.has(`${signature}:${retry}`)) return
+    if ((!enabled && retry <= manualRetry.current) || !signature || !missing || !navigator.onLine || attempted.current.has(`${signature}:${retry}`)) return
+    manualRetry.current = retry
     attempted.current.add(`${signature}:${retry}`)
     let stopped = false
     const controller = new AbortController()
@@ -41,6 +43,6 @@ export function CoverEnrichment({ authors, onUpdated }: { authors: { books: { id
       finally { if (!stopped) setRunning(false) }
     })()
     return () => { stopped = true; controller.abort(); attempted.current.delete(`${signature}:${retry}`) }
-  }, [signature, retry]) // missing is sampled only at the start of each collection pass
+  }, [signature, retry, enabled]) // missing is sampled only at the start of each collection pass
   return <div className="max-w-4xl mx-auto px-4 pt-3 text-sm text-gray-600 dark:text-gray-400"><p role="status">{message}</p>{missing && <button disabled={running} className="text-blue-600 underline disabled:opacity-50" onClick={() => { setMessage('Finding missing covers…'); setRetry(v => v + 1) }}>{running ? 'Cover search in progress…' : 'Retry missing covers'}</button>}</div>
 }

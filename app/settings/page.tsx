@@ -6,6 +6,8 @@ import { useTheme } from "@/lib/hooks/useTheme";
 import { useOfflineLibrary } from "@/lib/hooks/useOfflineLibrary";
 import { Button } from "@/components/ui/button";
 
+import { PreferenceSettings, BackupSettings, SecuritySettings, OfflineCoverSettings, DiagnosticsSettings } from "@/components/settings/settings-extras";
+
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme, storageError } = useTheme();
@@ -117,6 +119,9 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        <PreferenceSettings />
+        <BackupSettings />
+        <OfflineCoverSettings />
         <section className="bg-white dark:bg-gray-800 rounded-lg p-6">
           <h2 className="font-medium text-lg mb-4">Cache & Sync</h2>
           {cacheError && <p role="alert" className="text-sm text-amber-700 mb-3">{cacheError}</p>}
@@ -144,6 +149,8 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        <SecuritySettings />
+        <DiagnosticsSettings />
         <section className="bg-white dark:bg-gray-800 rounded-lg p-6">
           <h2 className="font-medium text-lg mb-4">Account</h2>
 

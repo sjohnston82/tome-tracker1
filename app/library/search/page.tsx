@@ -13,7 +13,10 @@ interface SearchResult {
   publishedYear?: number;
 }
 
+import { usePreferences } from "@/lib/preferences";
+
 export default function LibrarySearchPage() {
+  const { preferences } = usePreferences();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -61,7 +64,7 @@ export default function LibrarySearchPage() {
 
       const response = await fetch("/api/books", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Auto-Covers": preferences.autoCovers ? "on" : "off" },
         body: JSON.stringify(payload),
       });
       const data = await response.json();

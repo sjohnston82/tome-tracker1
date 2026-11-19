@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CoverEnrichment } from '@/components/library/cover-enrichment'
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 describe('automatic cover search', () => {
@@ -18,4 +18,11 @@ describe('automatic cover search', () => {
     render(<CoverEnrichment authors={[{ books: [{ id: 'one' }] }]} onUpdated={vi.fn()} />)
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('1 requests failed'))
   })
+  it('respects disabled automatic lookup while allowing an explicit retry', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ processed: 1, updated: 0, next: null }) }); vi.stubGlobal('fetch', fetcher);
+    render(<CoverEnrichment enabled={false} authors={[{ books: [{ id: 'one' }] }]} onUpdated={vi.fn()} />);
+    expect(fetcher).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole('button', { name: 'Retry missing covers' }));
+    await screen.findByText(/Cover search complete/); expect(fetcher).toHaveBeenCalledOnce();
+  });
+
 })

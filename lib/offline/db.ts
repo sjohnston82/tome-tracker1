@@ -20,6 +20,7 @@ interface LibraryDB extends DBSchema {
       isbn13: string | null;
       coverUrl: string | null;
       coverLocked?: boolean;
+      publicationYear?: number | null;
       seriesName: string | null;
       seriesNumber: number | null;
       readingStatus?: 'UNKNOWN' | 'UNREAD' | 'READING' | 'READ';
@@ -164,5 +165,5 @@ export async function clearCache() {
   await tx.objectStore("metadata").clear();
 
   await tx.done;
-  if (typeof caches !== 'undefined') await Promise.all(['library-sync', 'cover-images', 'google-covers'].map(name => caches.delete(name)));
+  if (typeof caches !== 'undefined') await Promise.all(['library-sync', 'cover-images', 'google-covers', 'offline-covers'].map(name => caches.delete(name)));
 }

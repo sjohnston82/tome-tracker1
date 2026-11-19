@@ -1,6 +1,10 @@
 import { cookies } from "next/headers";
 import { createToken, verifyToken, SessionPayload } from "./jwt";
 
+import { prisma } from "@/lib/db";
+import { createHash } from "node:crypto";
+const credentialStamp = (hash: string, email: string) => createHash("sha256").update(hash + "\0" + email).digest("hex");
+
 const COOKIE_NAME = "session";
 
 const getCookieOptions = () => ({
@@ -16,10 +20,13 @@ export async function createSession(user: {
   email: string;
   role: "USER" | "ADMIN";
 }): Promise<void> {
+  const current = await prisma.user.findUnique({ where: { id: user.id } });
+  if (!current) throw new Error("Unauthorized");
   const token = await createToken({
     userId: user.id,
-    email: user.email,
-    role: user.role,
+    email: current.email,
+    role: current.role,
+    credentialStamp: credentialStamp(current.passwordHash, current.email),
   });
 
   const cookieStore = await cookies();
@@ -31,7 +38,14 @@ export async function getSession(): Promise<SessionPayload | null> {
   const token = cookieStore.get(COOKIE_NAME)?.value;
 
   if (!token) return null;
-  return verifyToken(token);
+  const payload = await verifyToken(token);
+  if (!payload) return null;
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user) return null;
+  if (payload.credentialStamp) {
+    if (payload.credentialStamp !== credentialStamp(user.passwordHash, user.email)) return null;
+  } else if (payload.email !== user.email || (payload.iat ?? 0) < Math.floor(user.updatedAt.getTime() / 1000)) return null;
+  return { ...payload, email: user.email, role: user.role };
 }
 
 export async function destroySession(): Promise<void> {
