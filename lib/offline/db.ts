@@ -19,6 +19,7 @@ interface LibraryDB extends DBSchema {
       title: string;
       isbn13: string | null;
       coverUrl: string | null;
+      coverLocked?: boolean;
       seriesName: string | null;
       seriesNumber: number | null;
       readingStatus?: 'UNKNOWN' | 'UNREAD' | 'READING' | 'READ';

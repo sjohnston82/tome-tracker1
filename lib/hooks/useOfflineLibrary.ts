@@ -59,6 +59,7 @@ export function useOfflineLibrary() {
           title: book.title,
           isbn13: book.isbn13,
           coverUrl: book.coverUrl,
+          coverLocked: book.coverLocked,
           seriesName: book.seriesName,
           seriesNumber: book.seriesNumber,
           readingStatus: book.readingStatus ?? 'UNKNOWN',

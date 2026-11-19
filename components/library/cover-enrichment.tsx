@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-export function CoverEnrichment({ authors, onUpdated }: { authors: { books: { id: string; coverUrl?: string | null }[] }[]; onUpdated: () => Promise<void> }) {
+export function CoverEnrichment({ authors, onUpdated }: { authors: { books: { id: string; coverUrl?: string | null; coverLocked?: boolean }[] }[]; onUpdated: () => Promise<void> }) {
   const [message, setMessage] = useState('')
   const [retry, setRetry] = useState(0)
   const [running, setRunning] = useState(false)
@@ -11,7 +11,7 @@ export function CoverEnrichment({ authors, onUpdated }: { authors: { books: { id
   refresh.current = onUpdated
   // Covers changing during a pass must not restart or cancel that pass.
   const signature = authors.flatMap(a => a.books.map(b => b.id)).sort().join(',')
-  const missing = authors.some(a => a.books.some(b => !b.coverUrl))
+  const missing = authors.some(a => a.books.some(b => !b.coverUrl && !b.coverLocked))
   useEffect(() => {
     if (!signature || !missing || !navigator.onLine || attempted.current.has(`${signature}:${retry}`)) return
     attempted.current.add(`${signature}:${retry}`)

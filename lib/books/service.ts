@@ -95,7 +95,7 @@ export async function updateBook(
 
   const book = await prisma.book.update({
     where: { id: bookId },
-    data: { ...bookData, authorId, updatedAt: new Date() },
+    data: { ...bookData, ...('coverUrl' in input ? { coverLocked: true } : {}), authorId, updatedAt: new Date() },
     include: { author: true },
   })
 

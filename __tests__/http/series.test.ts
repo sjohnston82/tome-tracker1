@@ -56,4 +56,18 @@ describe('series HTTP flow with actual signed sessions', () => {
     const snapshot = await (await call('/api/library/sync')).json()
     expect(snapshot.authors[0].books[0].readingStatus).toBe('READING')
   })
+
+  it('preserves manually selected or removed covers and prevents cross-user changes', async () => {
+    const book = await prisma.book.findFirstOrThrow({ where: { userId: owner } })
+    const path = `/api/books/${book.id}/covers`
+    const coverUrl = 'https://covers.openlibrary.org/b/id/42-L.jpg?default=false'
+    expect((await call(path, 'PATCH', { coverUrl }, otherCookie)).status).toBe(404)
+    expect((await call(path, 'PATCH', { coverUrl })).status).toBe(200)
+    expect(await prisma.book.findUnique({ where: { id: book.id } })).toMatchObject({ coverUrl, coverLocked: true })
+    expect((await call(path, 'PATCH', { coverUrl: null })).status).toBe(200)
+    const result = await (await call('/api/enrichment/covers', 'POST', {})).json()
+    expect(result.processed).toBe(0)
+    expect(await prisma.book.findUnique({ where: { id: book.id } })).toMatchObject({ coverUrl: null, coverLocked: true })
+    expect(await prisma.book.count({ where: { userId: owner } })).toBe(1)
+  })
 })

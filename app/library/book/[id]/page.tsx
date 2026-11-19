@@ -5,12 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { useBook } from "@/lib/hooks/useBook";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CoverPicker } from '@/components/library/cover-picker';
 
 export default function BookDetailPage() {
   const params = useParams();
   const bookId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const router = useRouter();
-  const { book, loading, error, updateBook, deleteBook } = useBook(bookId ?? null);
+  const { book, loading, error, updateBook, deleteBook, refresh } = useBook(bookId ?? null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -126,6 +127,7 @@ export default function BookDetailPage() {
             )}
           </div>
         </div>
+        <CoverPicker book={book} onSaved={refresh} />
         <label className="block text-sm mb-5">Reading status
           <select aria-label="Reading status" className="block border rounded-lg px-3 py-2 mt-2 bg-white dark:bg-gray-900" value={book.readingStatus ?? 'UNKNOWN'} disabled={saving} onChange={async event => {
             setSaving(true);

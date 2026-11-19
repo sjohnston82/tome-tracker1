@@ -57,6 +57,7 @@ model Book {
   publisher       String?
   publicationYear Int?       @map("publication_year")
   coverUrl        String?    @map("cover_url")
+  coverLocked     Boolean    @default(false) @map("cover_locked")
   seriesName      String?    @map("series_name")
   seriesNumber    Float?     @map("series_number")
   workId          String?    @map("work_id")

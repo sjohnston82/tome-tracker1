@@ -33,9 +33,11 @@ export async function enrichUserBooks(userId: string): Promise<EnrichmentResult>
       if (!metadata) continue;
 
       const updates: Record<string, any> = {};
+      let coverUpdated = false;
 
-      if (!book.coverUrl && metadata.coverUrl) {
-        updates.coverUrl = metadata.coverUrl;
+      if (!book.coverUrl && !book.coverLocked && metadata.coverUrl) {
+        const changed = await prisma.book.updateMany({ where: { id: book.id, userId, coverUrl: null, coverLocked: false }, data: { coverUrl: metadata.coverUrl } });
+        coverUpdated = changed.count > 0;
       }
       if (!book.publisher && metadata.publisher) {
         updates.publisher = metadata.publisher;
@@ -52,8 +54,8 @@ export async function enrichUserBooks(userId: string): Promise<EnrichmentResult>
           where: { id: book.id },
           data: updates,
         });
-        result.enriched += 1;
       }
+      if (coverUpdated || Object.keys(updates).length > 0) result.enriched += 1;
 
       await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error) {

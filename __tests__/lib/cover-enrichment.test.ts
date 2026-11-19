@@ -10,8 +10,8 @@ describe('missing cover enrichment', () => {
     mocks.lookup.mockResolvedValue('https://covers.openlibrary.org/b/id/42-L.jpg')
     mocks.updateMany.mockResolvedValue({ count: 0 })
     expect(await fillMissingCovers('owner', 'previous')).toEqual({ processed: 1, updated: 0, errors: 0, next: null })
-    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'owner', coverUrl: null, id: { gt: 'previous' } } }))
-    expect(mocks.updateMany).toHaveBeenCalledWith({ where: { id: 'book', userId: 'owner', coverUrl: null }, data: { coverUrl: 'https://covers.openlibrary.org/b/id/42-L.jpg' } })
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'owner', coverUrl: null, coverLocked: false, id: { gt: 'previous' } } }))
+    expect(mocks.updateMany).toHaveBeenCalledWith({ where: { id: 'book', userId: 'owner', coverUrl: null, coverLocked: false }, data: { coverUrl: 'https://covers.openlibrary.org/b/id/42-L.jpg' } })
   })
   it('advances beyond unmatched books so they cannot starve later batches', async () => {
     mocks.findMany.mockResolvedValue(Array.from({ length: 5 }, (_, i) => ({ id: String(i), title: 'Missing', author: { name: 'An Author' }, isbn13: null })))
