@@ -1,13 +1,14 @@
 "use client";
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useCacheOwner } from '@/lib/offline/owner';
-export const defaultPreferences = { bookSort: 'series', groupBySeries: false, expandAuthors: false, autoCovers: true, showCurrentlyReading: true, progressUnit: 'pages', textSize: 'standard', reduceMotion: false } as const;
-export type Preferences = { bookSort: 'title' | 'series' | 'year'; groupBySeries: boolean; expandAuthors: boolean; autoCovers: boolean; showCurrentlyReading: boolean; progressUnit: 'pages' | 'percent'; textSize: 'standard' | 'large' | 'larger'; reduceMotion: boolean };
+export const defaultPreferences = { libraryView: 'list', bookSort: 'series', groupBySeries: false, expandAuthors: false, autoCovers: true, showCurrentlyReading: true, progressUnit: 'pages', textSize: 'standard', reduceMotion: false } as const;
+export type Preferences = { libraryView: 'list' | 'shelves'; bookSort: 'title' | 'series' | 'year'; groupBySeries: boolean; expandAuthors: boolean; autoCovers: boolean; showCurrentlyReading: boolean; progressUnit: 'pages' | 'percent'; textSize: 'standard' | 'large' | 'larger'; reduceMotion: boolean };
 export function parsePreferences(value: unknown): Preferences {
   const result: Preferences = { ...defaultPreferences };
   if (!value || typeof value !== 'object') return result;
   const input = value as Record<string, unknown>;
   for (const key of ['groupBySeries', 'expandAuthors', 'autoCovers', 'showCurrentlyReading', 'reduceMotion'] as const) if (typeof input[key] === 'boolean') result[key] = input[key];
+  if (['list', 'shelves'].includes(String(input.libraryView))) result.libraryView = input.libraryView as Preferences['libraryView'];
   if (['title', 'series', 'year'].includes(String(input.bookSort))) result.bookSort = input.bookSort as Preferences['bookSort'];
   if (['pages', 'percent'].includes(String(input.progressUnit))) result.progressUnit = input.progressUnit as Preferences['progressUnit'];
   if (['standard', 'large', 'larger'].includes(String(input.textSize))) result.textSize = input.textSize as Preferences['textSize'];

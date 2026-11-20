@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePreferences } from "@/lib/preferences"
+import { AuthorShelf } from './author-shelf'
 import { AuthorCard } from './author-card'
 import { AUTHOR_ALPHABET, groupAuthors } from '@/lib/books/author-groups'
 
 type Author = { id: string; name: string; books: { id: string; title: string; coverUrl?: string | null; seriesName?: string | null; publicationYear?: number | null; seriesNumber?: number | null }[] }
 
-export function AlphabeticalAuthors({ authors, groupBySeries, defaultExpanded = false, bookSort = "series" }: { authors: Author[]; groupBySeries: boolean; defaultExpanded?: boolean; bookSort?: "title" | "series" | "year" }) {
+export function AlphabeticalAuthors({ authors, groupBySeries, defaultExpanded = false, bookSort = "series", view = "list" }: { authors: Author[]; groupBySeries: boolean; view?: "list" | "shelves"; defaultExpanded?: boolean; bookSort?: "title" | "series" | "year" }) {
   const { preferences } = usePreferences()
   const groups = useMemo(() => groupAuthors(authors), [authors])
   const [active, setActive] = useState('')
@@ -50,7 +51,7 @@ export function AlphabeticalAuthors({ authors, groupBySeries, defaultExpanded = 
         <h2 id={`authors-${group.letter === '#' ? 'other' : group.letter}`} ref={element => { if (element) headings.current.set(group.letter, element); else headings.current.delete(group.letter) }} tabIndex={-1} className="scroll-mt-24 mb-3 flex items-baseline gap-3 border-b border-gray-200 dark:border-gray-700 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
           <span className="text-2xl font-bold">{group.letter}</span>{' '}<span className="text-sm text-gray-500">{group.authors.length} {group.authors.length === 1 ? 'author' : 'authors'}</span>
         </h2>
-        <div className="space-y-3">{group.authors.map(author => <AuthorCard key={author.id} author={author} groupBySeries={groupBySeries} defaultExpanded={defaultExpanded} bookSort={bookSort} />)}</div>
+        <div className={view === "shelves" ? "space-y-7" : "space-y-3"}>{group.authors.map(author => view === "shelves" ? <AuthorShelf key={author.id} author={author} groupBySeries={groupBySeries} bookSort={bookSort} /> : <AuthorCard key={author.id} author={author} groupBySeries={groupBySeries} defaultExpanded={defaultExpanded} bookSort={bookSort} />)}</div>
       </section>)}
     </div>
     <nav aria-label="Author alphabet" className="sticky top-20 max-h-[calc(100dvh-11rem)] overflow-y-auto rounded-full border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 py-2 shadow-sm">

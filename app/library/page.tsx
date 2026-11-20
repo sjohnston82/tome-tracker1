@@ -14,7 +14,7 @@ import { CurrentlyReading } from '@/components/library/currently-reading';
 import { usePreferences } from "@/lib/preferences";
 
 export default function LibraryPage() {
-  const { preferences, ready } = usePreferences();
+  const { preferences, ready, update, error: preferenceError } = usePreferences();
   const router = useRouter();
   const { loading, error, authors, stats, sync, isFromCache, lastSynced } = useLibrary();
   const [search, setSearch] = useState("");
@@ -88,7 +88,11 @@ export default function LibraryPage() {
         onChange={(event) => setSearch(event.target.value)}
         className="mb-4"
       />
-      <label className="flex items-center gap-2 mb-6 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div role="group" aria-label="Library view" className="inline-flex p-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        {([{ value: 'list', label: 'Author list' }, { value: 'shelves', label: 'Book shelves' }] as const).map(view => <button key={view.value} type="button" disabled={!ready} aria-pressed={preferences.libraryView === view.value} onClick={() => update({ libraryView: view.value })} className={`px-3 py-2 text-sm rounded-md font-medium focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50 ${preferences.libraryView === view.value ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800'}`}>{view.label}</button>)}
+      </div>
+      <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={groupBySeries}
@@ -96,6 +100,9 @@ export default function LibraryPage() {
         />
         Show series details
       </label>
+      </div>
+      {preferences.libraryView === "shelves" && <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Swipe or scroll each row to browse books. You can also use the row arrows or focus a row and press the arrow keys.</p>}
+      {preferenceError && <p role="status" className="text-sm text-amber-700 mb-4">{preferenceError}</p>}
       {filteredAuthors.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           {search ? "No matches" : "Your library is empty"}
@@ -106,7 +113,7 @@ export default function LibraryPage() {
           )}
         </div>
       ) : (
-        <AlphabeticalAuthors key={`${ready}:${preferences.expandAuthors}`} authors={filteredAuthors} groupBySeries={groupBySeries} defaultExpanded={preferences.expandAuthors} bookSort={preferences.bookSort} />
+        <AlphabeticalAuthors key={`${ready}:${preferences.expandAuthors}`} authors={filteredAuthors} groupBySeries={groupBySeries} defaultExpanded={preferences.expandAuthors} bookSort={preferences.bookSort} view={preferences.libraryView} />
       )}
       </div>
     </>

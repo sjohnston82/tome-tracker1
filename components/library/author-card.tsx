@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
+import { sortAuthorBooks } from '@/lib/books/book-order';
 import { cn } from "@/lib/utils";
 import { BookCover } from '@/components/library/book-cover';
 
@@ -38,11 +39,7 @@ export function AuthorCard({
       </button>
       {opened && (
         <div id={panelId} hidden={!expanded} className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 space-y-2 mt-3">
-          {[...author.books].sort((a: any, b: any) => {
-            if (bookSort === "year") return (a.publicationYear ?? Infinity) - (b.publicationYear ?? Infinity) || a.title.localeCompare(b.title);
-            if (bookSort === "series") return (a.seriesName ?? "\uffff").localeCompare(b.seriesName ?? "\uffff") || (a.seriesNumber ?? Infinity) - (b.seriesNumber ?? Infinity) || a.title.localeCompare(b.title);
-            return a.title.localeCompare(b.title);
-          }).map((book: any) => (
+          {sortAuthorBooks(author.books, bookSort).map((book: any) => (
             <Link
               key={book.id}
               href={`/library/book/${book.id}`}

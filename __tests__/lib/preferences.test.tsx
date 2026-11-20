@@ -12,6 +12,7 @@ describe('browser preferences', () => {
   it('persists all library/reading/accessibility choices and applies text/motion globally', async () => {
     const { unmount } = render(view('owner'));
     await waitFor(() => expect(screen.getByLabelText('Text size').hasAttribute('disabled')).toBe(false));
+    fireEvent.change(screen.getByLabelText('Library view'), { target: { value: 'shelves' } });
     fireEvent.change(screen.getByLabelText('Text size'), { target: { value: 'larger' } });
     fireEvent.change(screen.getByLabelText('Book order within each author'), { target: { value: 'title' } });
     fireEvent.change(screen.getByLabelText('Default progress entry'), { target: { value: 'percent' } });
@@ -20,6 +21,7 @@ describe('browser preferences', () => {
     expect(document.documentElement.classList.contains('reduce-motion')).toBe(true);
     unmount(); render(view('owner'));
     await waitFor(() => expect((screen.getByLabelText('Text size') as HTMLSelectElement).value).toBe('larger'));
+    expect((screen.getByLabelText('Library view') as HTMLSelectElement).value).toBe('shelves');
     expect(screen.getByRole('status').textContent).toContain('"autoCovers":false');
     expect(screen.getByRole('status').textContent).toContain('"progressUnit":"percent"');
   });
