@@ -101,7 +101,7 @@ export default function LibraryPage() {
         Show series details
       </label>
       </div>
-      {preferences.libraryView === "shelves" && <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Swipe or scroll each row to browse books. You can also use the row arrows or focus a row and press the arrow keys.</p>}
+      {preferences.libraryView === "shelves" && <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">One row per letter. Swipe or scroll to center a book; its title and author appear below. Hover, keyboard focus and the arrow controls also select a book.</p>}
       {preferenceError && <p role="status" className="text-sm text-amber-700 mb-4">{preferenceError}</p>}
       {filteredAuthors.length === 0 ? (
         <div className="text-center py-12 text-gray-500">

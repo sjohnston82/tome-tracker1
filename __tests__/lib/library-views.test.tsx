@@ -16,20 +16,20 @@ describe('library view switching', () => {
     expect(screen.getByRole('button', { name: 'Author list' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('link', { name: /A Novel/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Book shelves' }));
-    expect(screen.getByRole('list', { name: 'Books by Terry Pratchett' })).toBeDefined();
+    expect(screen.getByRole('list', { name: 'Books under P' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Book shelves' }).getAttribute('aria-pressed')).toBe('true');
     expect(JSON.parse(localStorage.getItem('tome-preferences:owner')!).libraryView).toBe('shelves');
-    unmount(); render(view()); await screen.findByRole('list', { name: 'Books by Terry Pratchett' });
-    fireEvent.click(screen.getByRole('button', { name: 'Author list' })); expect(screen.queryByRole('list', { name: 'Books by Terry Pratchett' })).toBeNull();
+    unmount(); render(view()); await screen.findByRole('list', { name: 'Books under P' });
+    fireEvent.click(screen.getByRole('button', { name: 'Author list' })); expect(screen.queryByRole('list', { name: 'Books under P' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Terry Pratchett/ })); expect(screen.getByRole('link', { name: /A Novel/ })).toBeDefined();
   });
   it('keeps author filtering and alphabet availability in shelf view and isolates the saved view by account', async () => {
     localStorage.setItem('tome-preferences:owner', JSON.stringify({ libraryView: 'shelves' }));
-    const { rerender } = render(view()); await screen.findByRole('list', { name: 'Books by Terry Pratchett' });
+    const { rerender } = render(view()); await screen.findByRole('list', { name: 'Books under P' });
     fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'Pratchett' } });
-    expect(screen.queryByRole('heading', { name: 'Arthur C. Clarke' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Books under C' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Jump to C' }).hasAttribute('disabled')).toBe(true);
     rerender(view('other')); await waitFor(() => expect(screen.getByRole('button', { name: 'Author list' }).getAttribute('aria-pressed')).toBe('true'));
-    expect(screen.queryByRole('list', { name: 'Books by Terry Pratchett' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Books under P' })).toBeNull();
   });
 });
