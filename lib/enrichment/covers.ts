@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db'
 import { findBookCover } from '@/lib/metadata/covers'
 
 export async function fillMissingCovers(userId: string, after?: string) {
-  const books = await prisma.book.findMany({ where: { userId, coverUrl: null, coverLocked: false, ...(after ? { id: { gt: after } } : {}) }, include: { author: true }, orderBy: { id: 'asc' }, take: 5 })
+  const books = await prisma.book.findMany({ where: { userId, coverUrl: null, coverLocked: false, ...(after ? { id: { gt: after } } : {}) }, include: { author: true }, orderBy: { id: 'asc' }, take: 2 })
   let updated = 0
   let errors = 0
   for (const book of books) {
@@ -16,5 +16,5 @@ export async function fillMissingCovers(userId: string, after?: string) {
     } catch { errors++ }
     await new Promise(resolve => setTimeout(resolve, 1100))
   }
-  return { processed: books.length, updated, errors, next: books.length === 5 ? books.at(-1)!.id : null }
+  return { processed: books.length, updated, errors, next: books.length === 2 ? books.at(-1)!.id : null }
 }
