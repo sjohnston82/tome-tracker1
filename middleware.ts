@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth/jwt";
 
 // Routes that require authentication
-const protectedRoutes = ["/library", "/series", "/settings", "/scan", "/admin"];
+const protectedRoutes = ["/library", "/series", "/activity", "/settings", "/scan", "/admin"];
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;

@@ -14,6 +14,7 @@ export function Header({ user }: HeaderProps) {
     ? [
         { href: "/library", label: "Library" },
         { href: "/series", label: "Series" },
+        { href: "/activity", label: "Activity" },
         { href: "/scan", label: "Scan" },
         { href: "/settings", label: "Settings" },
       ]
@@ -34,6 +35,7 @@ export function Header({ user }: HeaderProps) {
             {navItems.map((item) => (
               <Link
                 key={item.href}
+                aria-current={pathname.startsWith(item.href) ? "page" : undefined}
                 href={item.href}
                 className={cn(
                   "px-3 py-2 rounded-md text-sm font-medium transition-colors",

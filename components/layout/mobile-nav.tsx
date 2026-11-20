@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/library", label: "Library", icon: "📚" },
   { href: "/series", label: "Series", icon: "📖" },
+  { href: "/activity", label: "Activity", icon: "📊" },
   { href: "/scan", label: "Scan", icon: "📷" },
   { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
@@ -19,9 +20,10 @@ export function MobileNav() {
         {navItems.map((item) => (
           <Link
             key={item.href}
+                aria-current={pathname.startsWith(item.href) ? "page" : undefined}
             href={item.href}
             className={cn(
-              "flex flex-col items-center py-3 px-4 text-xs transition-colors",
+              "flex flex-1 min-w-0 flex-col items-center py-3 px-1 text-xs transition-colors",
               pathname.startsWith(item.href)
                 ? "text-blue-600 dark:text-blue-400"
                 : "text-gray-600 dark:text-gray-400"
