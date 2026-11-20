@@ -28,8 +28,16 @@ describe('OpenLibrary Provider', () => {
   it('maps search results without inventing missing publication metadata', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ docs: [{ title: 'Mistborn', author_name: ['Brandon Sanderson'], isbn: ['076531178X', '9780765311788'] }, { title: 'Untitled' }] }) }))
     const results = await openLibrary.search('mistborn sanderson')
-    expect(results[0]).toMatchObject({ title: 'Mistborn', authors: ['Brandon Sanderson'], isbn13: '9780765311788' })
+    expect(results[0]).toMatchObject({ title: 'Mistborn', authors: ['Brandon Sanderson'] })
+    expect(results[0].isbn13).toBeUndefined() // A work-level ISBN list doesn't identify the displayed edition.
     expect(results[1].publishedYear).toBeUndefined()
     expect(results[1].authors).toEqual([])
   })
+  it('uses an English edition’s cover, title and ISBN together instead of a random work-level ISBN', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ docs: [{ title: 'Mistborn', author_name: ['Brandon Sanderson'], isbn: ['9780000000001'], cover_i: 1, editions: { docs: [{ title: 'Mistborn', cover_i: 2, language: ['eng'], isbn: ['9780765311788'] }] } }] }) });
+    vi.stubGlobal('fetch', fetcher);
+    expect((await openLibrary.search('Mistborn'))[0]).toMatchObject({ coverUrl: 'https://covers.openlibrary.org/b/id/2-M.jpg', isbn13: '9780765311788' });
+    expect(new URL(fetcher.mock.calls[0][0]).searchParams.get('lang')).toBe('en');
+  });
+
 })

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { coverLanguageLabel } from '@/lib/metadata/cover-language'
 import type { CoverOption } from '@/lib/metadata/cover-options'
 import { coverImageUrl, isBlankCover } from '@/lib/books/cover-image'
 
@@ -66,7 +67,7 @@ export function CoverPicker({ book, onSaved }: { book: { id: string; title: stri
     <Button ref={trigger} variant="secondary" disabled={saving} aria-expanded={open} aria-controls="cover-picker" onClick={() => setOpen(value => !value)}>Choose cover</Button>
     {open && <div id="cover-picker" ref={panel} tabIndex={-1} role="region" aria-label="Choose a book cover" className="border rounded-xl p-4 mt-3 space-y-4" onKeyDown={event => { if (event.key === 'Escape' && !saving) setOpen(false) }}>
       <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">Choose a cover</h2><button disabled={saving} onClick={() => setOpen(false)} className="text-blue-600">Keep current cover</button></div>
-      <p className="text-sm text-gray-600 dark:text-gray-400">Browse editions from Open Library and Google Books. ISBN matches appear first when available. Search changes here won’t change your book’s title or author.</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400">Browse editions from Open Library and Google Books. ISBN matches appear first, followed by English editions when the language is known. Search changes here won’t change your book’s title or author.</p>
       {!online && <p role="status">Connect to the internet to search or change covers.</p>}
       <form className="space-y-3" onSubmit={event => { event.preventDefault(); setQuery({ title: title.trim(), author: author.trim(), run: query.run + 1 }) }}>
         <div className="grid sm:grid-cols-2 gap-3"><Input label="Cover search title" required maxLength={500} value={title} onChange={event => setTitle(event.target.value)} /><Input label="Cover search author" maxLength={200} value={author} onChange={event => setAuthor(event.target.value)} /></div>
@@ -80,7 +81,7 @@ export function CoverPicker({ book, onSaved }: { book: { id: string; title: stri
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
           {options.map((option, index) => <button key={option.url} type="button" aria-label={`Preview cover ${index + 1}: ${option.title}`} aria-pressed={selected?.url === option.url} disabled={saving || broken.has(option.url)} onClick={() => setSelected(option)} className={`border rounded-lg p-2 text-left disabled:opacity-50 ${selected?.url === option.url ? 'ring-2 ring-blue-500' : ''}`}>
             {broken.has(option.url) ? <span>Image unavailable</span> : <img src={coverImageUrl(option.url, true)} alt={`${option.title} — ${option.source}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-36 w-full object-contain" onError={() => failImage(option.url)} onLoad={event => { if (isBlankCover(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)) failImage(option.url) }} />}
-            <span className="block text-xs mt-2">{option.title}</span><span className="block text-xs text-gray-500">{option.publisher ?? option.source}{option.year ? ` · ${option.year}` : ''}</span>
+            <span className="block text-xs mt-2">{option.title}</span><span className="block text-xs text-gray-500">{option.publisher ?? option.source}{option.year ? ` · ${option.year}` : ''} · {coverLanguageLabel(option.language)}</span>
             {option.exactIsbn && <span className="text-xs text-green-700">Matches your ISBN</span>}
           </button>)}
         </div>

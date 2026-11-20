@@ -23,4 +23,12 @@ describe('alternative edition covers', () => {
     expect((await searchCoverOptions('Unsafe', '')).options).toEqual([])
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
   })
+  it('ranks exact ISBN first, then English covers, and retains foreign alternatives for manual choice', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, json: async () => url.includes('googleapis') ? { items: [] } : url.includes('/search') ? { docs: [{ key: '/works/OL1W', title: 'A Novel', author_name: ['An Author'], cover_i: 1 }] } : url.includes('/editions') ? { entries: [{ title: 'German edition', covers: [1], languages: [{ key: '/languages/ger' }] }, { title: 'English edition', covers: [2], languages: [{ key: '/languages/eng' }] }] } : { title: 'My German copy', covers: [3], isbn_13: ['9780000000001'], languages: [{ key: '/languages/ger' }] } })));
+    const result = await searchCoverOptions('A Novel', 'An Author', '9780000000001');
+    expect(result.options.map(option => option.url.match(/id\/(\d+)/)?.[1])).toEqual(['3', '2', '1']);
+    expect(result.options.map(option => option.language)).toEqual(['de', 'en', 'de']);
+    const googleURL = String(vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('googleapis'))![0]); expect(new URL(googleURL).searchParams.get('langRestrict')).toBe('en');
+  });
+
 })

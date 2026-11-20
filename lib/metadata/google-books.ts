@@ -7,7 +7,9 @@ export class GoogleBooksProvider implements MetadataProvider {
 
   async lookupByIsbn(isbn: string): Promise<BookMetadata | null> {
     try {
-      const response = await fetch(`${BASE_URL}/volumes?q=isbn:${isbn}`, {
+      const params = new URLSearchParams({ q: `isbn:${isbn}` });
+      if (process.env.GOOGLE_BOOKS_API_KEY) params.set('key', process.env.GOOGLE_BOOKS_API_KEY);
+      const response = await fetch(`${BASE_URL}/volumes?${params}`, {
         next: { revalidate: 86400 },
       })
 
@@ -46,7 +48,8 @@ export class GoogleBooksProvider implements MetadataProvider {
 
   async search(query: string): Promise<SearchResult[]> {
     try {
-      const params = new URLSearchParams({ q: query, maxResults: '10' })
+      const params = new URLSearchParams({ q: query, maxResults: '10', langRestrict: 'en' })
+      if (process.env.GOOGLE_BOOKS_API_KEY) params.set('key', process.env.GOOGLE_BOOKS_API_KEY)
 
       const response = await fetch(`${BASE_URL}/volumes?${params}`, {
         next: { revalidate: 3600 },

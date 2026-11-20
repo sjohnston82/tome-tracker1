@@ -33,4 +33,27 @@ describe('conservative cover matching', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Offline')))
     expect(await findBookCover('A Novel', 'An Author')).toBeNull()
   })
+  it('selects the English edition cover instead of the work’s first German jacket', async () => {
+    mock([{ title: 'A Novel', author_name: ['An Author'], cover_i: 1, language: ['eng', 'ger'], editions: { docs: [{ title: 'A Novel', language: ['eng'], cover_i: 42 }] } }]);
+    expect(await findBookCover('A Novel', 'An Author')).toContain('/42-L.jpg');
+    const params = new URL(vi.mocked(fetch).mock.calls[0][0] as string).searchParams;
+    expect(params.get('lang')).toBe('en'); expect(params.get('q')).toBe('A Novel'); expect(params.has('author')).toBe(false); expect(params.get('fields')).toContain('editions.language');
+  });
+  it('ranks confirmed English above unknown artwork and avoids known foreign-language editions', async () => {
+    mock([{ title: 'A Novel', author_name: ['An Author'], cover_i: 1 }, { title: 'A Novel', author_name: ['An Author'], cover_i: 2, editions: { docs: [{ language: ['eng'], cover_i: 42 }] } }]);
+    expect(await findBookCover('A Novel', 'An Author')).toContain('/42-L.jpg');
+    mock([{ title: 'A Novel', author_name: ['An Author'], cover_i: 1, language: ['eng', 'ger'], editions: { docs: [{ language: ['ger'], cover_i: 1 }] } }]);
+    expect(await findBookCover('A Novel', 'An Author')).toBeNull();
+    mock([{ title: 'A Novel', author_name: ['An Author'], cover_i: 1, editions: { docs: [] } }]);
+    expect(await findBookCover('A Novel', 'An Author')).toBeNull();
+  });
+  it('uses a verified ISBN edition even if it is not English, never a generic work cover', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ isbn_13: ['9780000000001'], covers: [7], languages: [{ key: '/languages/ger' }] }) }));
+    expect(await findBookCover('A Novel', 'An Author', '9780000000001')).toContain('/7-L.jpg');
+    expect(String(vi.mocked(fetch).mock.calls[0][0])).toBe('https://openlibrary.org/isbn/9780000000001.json');
+    expect(await findBookCover('A Novel', 'An Author', '9780000000002')).toBeNull();
+    vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ isbn_10: ['0306406152'], covers: [8] }) } as Response);
+    expect(await findBookCover('A Novel', 'An Author', '9780306406157')).toContain('/8-L.jpg');
+  });
+
 })
