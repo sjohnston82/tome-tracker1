@@ -30,3 +30,11 @@ body {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 :root.reduce-motion *, :root.reduce-motion *::before, :root.reduce-motion *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+
+.book-carousel { scrollbar-width: none; -ms-overflow-style: none; }
+.book-carousel::-webkit-scrollbar { display: none; }
+.book-carousel > li:first-child > a { transform-origin: left center; }
+.book-carousel > li:last-child:not(:first-child) > a { transform-origin: right center; }
+@media (hover: hover) and (pointer: fine) {
+  .book-carousel-card:hover { transform: scale(1.12); }
+}
