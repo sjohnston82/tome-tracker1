@@ -46,9 +46,9 @@ export function AlphabeticalAuthors({ authors, groupBySeries, defaultExpanded = 
   }
 
   return <div ref={root} className="grid grid-cols-[minmax(0,1fr)_2.5rem] gap-3 sm:gap-6 items-start">
-    <div className="min-w-0 space-y-8">
+    <div className="min-w-0 space-y-3">
       {groups.map(group => <section key={group.letter} aria-labelledby={`authors-${group.letter === '#' ? 'other' : group.letter}`}>
-        <h2 id={`authors-${group.letter === '#' ? 'other' : group.letter}`} ref={element => { if (element) headings.current.set(group.letter, element); else headings.current.delete(group.letter) }} tabIndex={-1} className="scroll-mt-24 mb-3 flex items-baseline gap-3 border-b border-gray-200 dark:border-gray-700 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
+        <h2 id={`authors-${group.letter === '#' ? 'other' : group.letter}`} ref={element => { if (element) headings.current.set(group.letter, element); else headings.current.delete(group.letter) }} tabIndex={-1} className="scroll-mt-24 mb-1 flex items-baseline gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
           <span className="text-2xl font-bold">{group.letter}</span>{' '}<span className="text-sm text-gray-500">{group.authors.length} {group.authors.length === 1 ? 'author' : 'authors'}</span>
         </h2>
         {view === "shelves" ? <LetterShelf letter={group.letter} authors={group.authors} groupBySeries={groupBySeries} bookSort={bookSort} /> : <div className="space-y-3">{group.authors.map(author => <AuthorCard key={author.id} author={author} groupBySeries={groupBySeries} defaultExpanded={defaultExpanded} bookSort={bookSort} />)}</div>}

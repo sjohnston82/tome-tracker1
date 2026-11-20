@@ -60,7 +60,7 @@ export function LetterShelf({ letter, authors, groupBySeries, bookSort = 'series
       <button type="button" aria-label={`Next books under ${letter}`} aria-controls={rowId} disabled={!position.next} onPointerDown={stop} onClick={() => scrollPage(1)} className="absolute z-20 right-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 dark:bg-gray-900/95 border border-gray-300 dark:border-gray-600 shadow-sm disabled:opacity-25 focus-visible:outline-2 focus-visible:outline-blue-500"><span aria-hidden="true">→</span></button>
     </>}
     </div>
-    <div id={captionId} role="status" aria-label={`Focused book under ${letter}`} aria-live="polite" aria-atomic="true" className="min-h-28 pt-2 text-center space-y-1">
+    <div id={captionId} role="status" aria-label={`Focused book under ${letter}`} aria-live="polite" aria-atomic="true" className={`${groupBySeries ? "min-h-20" : "min-h-16"} pt-1 text-center space-y-1`}>
       {focused ? <>
         <h3 className="text-lg font-semibold leading-snug break-words">{focused.title}</h3>
         <p className="text-sm text-gray-600 dark:text-gray-300 break-words">{focused.authorName}</p>
