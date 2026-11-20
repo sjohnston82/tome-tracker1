@@ -76,4 +76,26 @@ describe('letter book carousels', () => {
     rerender(<AlphabeticalAuthors authors={[authors[0]]} groupBySeries={false} view="shelves" />); expect(caption().textContent).not.toContain('Philip Pullman');
     rerender(<AlphabeticalAuthors authors={[authors[0]]} groupBySeries={false} view="list" />); expect(screen.queryByRole('list', { name: 'Books under P' })).toBeNull(); expect(screen.getByRole('button', { name: /Terry Pratchett/ })).toBeDefined();
   });
+  it('pages faster with buttons, stops edge scrolling, and disables controls at the bounds', () => {
+    render(<LetterShelf letter="P" authors={authors} groupBySeries={false} />);
+    const row = screen.getByRole('list', { name: 'Books under P' });
+    const previous = screen.getByRole('button', { name: 'Previous books under P' }), next = screen.getByRole('button', { name: 'Next books under P' });
+    expect(previous.hasAttribute('disabled')).toBe(true); expect(next.getAttribute('aria-controls')).toBe(row.id);
+    pointer(row, 395); expect(frames.size).toBe(1);
+    fireEvent.click(next); expect(frames.size).toBe(0); expect(row.scrollTo).toHaveBeenCalledWith({ left: 360, behavior: 'smooth' }); expect(previous.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(next); expect(row.scrollLeft).toBe(500); expect(next.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(previous); expect(row.scrollLeft).toBe(140);
+    fireEvent.click(previous); expect(row.scrollLeft).toBe(0); expect(previous.hasAttribute('disabled')).toBe(true);
+    expect(caption().textContent).toBe('3 books');
+  });
+  it('hides unnecessary buttons when the row fits and respects reduced motion for button paging', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    render(<LetterShelf letter="P" authors={authors} groupBySeries={false} />);
+    const row = screen.getByRole('list', { name: 'Books under P' });
+    fireEvent.click(screen.getByRole('button', { name: 'Next books under P' }));
+    expect(row.scrollTo).toHaveBeenCalledWith({ left: 360, behavior: 'auto' });
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(400); row.scrollLeft = 0; fireEvent.resize(window);
+    expect(screen.queryByRole('button', { name: 'Next books under P' })).toBeNull();
+  });
+
 });
