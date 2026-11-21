@@ -7,7 +7,7 @@ vi.mock('@/lib/auth/session', () => ({ getSession: mocks.session }))
 vi.mock('@/lib/db', () => ({ prisma: { work: { findFirst: mocks.findWork }, collectionImport: { findUnique: mocks.findImport } } }))
 vi.mock('@/lib/series/service', () => ({ updateWork: mocks.updateWork, linkEdition: mocks.linkEdition, unlinkEdition: mocks.unlinkEdition }))
 vi.mock('@/lib/series/metadata', () => ({ lookupWorkMetadata: mocks.lookup }))
-vi.mock('@/lib/import/collection-service', () => ({ previewCollectionImport: mocks.preview, applyCollectionImport: mocks.apply }))
+vi.mock('@/lib/import/collection-service', () => ({ stageCollectionPreview: mocks.preview, applyCollectionImport: mocks.apply }))
 
 import { GET as metadata } from '@/app/api/works/[id]/metadata/route'
 import { PATCH as patchWork } from '@/app/api/works/[id]/route'

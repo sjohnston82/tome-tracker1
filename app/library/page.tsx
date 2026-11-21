@@ -71,6 +71,7 @@ export default function LibraryPage() {
       <section aria-label="Reading progress" className="border rounded-xl p-4 mb-5 bg-white dark:bg-gray-900">
         <div className="flex flex-wrap justify-between gap-2 text-sm mb-3"><strong>{reading.READ} of {stats?.bookCount ?? 0} books read</strong><span>{reading.READING} currently reading · {reading.UNREAD} unread · {reading.UNKNOWN} unknown</span></div>
         <progress aria-label="Owned books read" value={reading.READ} max={stats?.bookCount || 1} className="w-full h-2 accent-blue-600" />
+        <Link href="/library/review" className="text-sm text-blue-600 mt-2 mr-5 inline-block hover:underline">Review metadata →</Link>
         <Link href="/activity" className="text-sm text-blue-600 mt-2 mr-5 inline-block hover:underline">View reading activity →</Link>
         <button onClick={() => router.push('/series')} className="text-sm text-blue-600 mt-2 hover:underline">Explore series and missing books →</button>
       </section>

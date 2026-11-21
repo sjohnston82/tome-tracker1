@@ -1,3 +1,4 @@
+import { jsonObject, PREVIEW_DATASET, mergeReviewDecisions } from '@/lib/review/decisions'
 import { retryTransaction } from '@/lib/transaction-retry'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
@@ -16,6 +17,20 @@ export async function previewCollectionImport(userId: string, input: unknown) {
   const manifest = collectionManifestSchema.parse(input)
   const plan = await preview(prisma, userId, manifest)
   return { ready: plan.ready, summary: plan.summary, issues: plan.issues }
+}
+
+// Retain the preview as a staging record, without changing books or works.
+// This makes ambiguous source matches available in the central review queue.
+export async function stageCollectionPreview(userId: string, input: unknown) {
+  const manifest = collectionManifestSchema.parse(input)
+  return retryTransaction(() => prisma.$transaction(async tx => {
+    const plan = await preview(tx, userId, manifest)
+    const previous = await tx.collectionImport.findMany({ where: { userId, dataset: { in: ['tome-collection', PREVIEW_DATASET] } } })
+    const decisions = mergeReviewDecisions(...previous.map(row => row.report))
+    const report = { applied: false, ready: plan.ready, summary: plan.summary, issues: plan.issues, _metadataReview: decisions }
+    await tx.collectionImport.upsert({ where: { userId_dataset: { userId, dataset: PREVIEW_DATASET } }, update: { manifest: manifest as Prisma.InputJsonValue, report: report as Prisma.InputJsonValue }, create: { userId, dataset: PREVIEW_DATASET, manifest: manifest as Prisma.InputJsonValue, report: report as Prisma.InputJsonValue } })
+    return report
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 }))
 }
 
 export async function applyCollectionImport(userId: string, input: unknown) {
@@ -64,8 +79,13 @@ export async function applyCollectionImport(userId: string, input: unknown) {
     const actualStatuses = { UNKNOWN: 0, UNREAD: 0, READING: 0, READ: 0 }
     for (const book of imported) actualStatuses[book.readingStatus]++
     const reconciled = Object.keys(actualStatuses).every(k => actualStatuses[k as keyof typeof actualStatuses] === manifest.expected.statuses[k as keyof typeof actualStatuses])
-    const report = { applied: true, ready: true, summary: plan.summary, actualOwned: imported.length, actualStatuses, reconciled, issues: plan.issues }
+    const previous = await tx.collectionImport.findMany({ where: { userId, dataset: { in: ['tome-collection', PREVIEW_DATASET] } } })
+    const decisions = mergeReviewDecisions(...previous.map(row => row.report))
+    const report = { _metadataReview: decisions, applied: true, ready: true, summary: plan.summary, actualOwned: imported.length, actualStatuses, reconciled, issues: plan.issues }
     await tx.collectionImport.upsert({ where: { userId_dataset: { userId, dataset: manifest.dataset } }, update: { manifest: manifest as Prisma.InputJsonValue, report: report as Prisma.InputJsonValue }, create: { userId, dataset: manifest.dataset, manifest: manifest as Prisma.InputJsonValue, report: report as Prisma.InputJsonValue } })
+    const staged = previous.find(row => row.dataset === PREVIEW_DATASET)
+    const stagedManifest = staged && collectionManifestSchema.safeParse(staged.manifest)
+    if (staged && stagedManifest?.success && JSON.stringify(stagedManifest.data.sourceHashes) === JSON.stringify(manifest.sourceHashes)) await tx.collectionImport.update({ where: { id: staged.id }, data: { report: { ...jsonObject(staged.report), applied: true, _metadataReview: decisions } as Prisma.InputJsonValue } })
     return report
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 60000, maxWait: 10000 }))
 }

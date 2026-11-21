@@ -88,7 +88,7 @@ export default function SeriesPage() {
     {notice && <p role="status" className="mb-4 rounded-lg bg-green-50 text-green-800 p-3">{notice}</p>}
     {showImport && <section className="border rounded-xl p-5 mb-6 space-y-4 bg-white dark:bg-gray-900">
       <h2 className="text-lg font-semibold">Import your verified collection</h2>
-      <p className="text-sm text-gray-600 dark:text-gray-400">Upload the collection manifest generated from your Excel master and Word checklists. Preview compares it with your library before any changes.</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400">Upload the collection manifest generated from your Excel master and Word checklists. Preview checks your library and saves unresolved questions for review. Books and works change only when you apply the import or confirm a correction.</p>
       <label className="block text-sm font-medium">Collection manifest <input className="block mt-2" type="file" accept=".json,application/json" disabled={busy || !online} onChange={async event => {
         const file = event.target.files?.[0]; setManifest(null); setReport(null)
         if (!file) return
@@ -105,7 +105,8 @@ export default function SeriesPage() {
         <p className="text-sm">{report.summary.newOwned} books to add · {report.summary.existingOwned} existing editions to reuse</p>
         <p className="text-sm">Source reading statuses: {Object.entries(report.summary.expectedStatuses).map(([key, count]) => `${count} ${statuses[key as keyof typeof statuses]}`).join(' · ')}</p>
         {report.applied && <p role="status">Imported {report.actualOwned} physical books. {report.reconciled ? 'Reading counts match the source.' : 'Reading counts differ because existing library corrections were preserved; review the differences below.'}</p>}
-        {report.issues.length > 0 && <details open={report.issues.some(i => i.blocking)}><summary className="cursor-pointer font-medium">{report.issues.length} items for review</summary><ul className="mt-3 space-y-2 text-sm max-h-64 overflow-y-auto">{report.issues.map((issue, index) => <li key={`${issue.sourceKey}-${index}`} className={issue.blocking ? 'text-red-700' : ''}>{issue.title && <strong>{issue.title}: </strong>}{issue.message}</li>)}</ul></details>}
+        {report.issues.length > 0 && <a href="/library/review" className="block text-blue-600 underline">Open metadata review center</a>}
+        {report.issues.length > 0 && <details open={report.issues.some(i => i.blocking)}><summary className="cursor-pointer font-medium">{report.issues.length} import notes</summary><ul className="mt-3 space-y-2 text-sm max-h-64 overflow-y-auto">{report.issues.map((issue, index) => <li key={`${issue.sourceKey}-${index}`} className={issue.blocking ? 'text-red-700' : ''}>{issue.title && <strong>{issue.title}: </strong>}{issue.message}</li>)}</ul></details>}
         {manifest && !report.applied && <Button disabled={busy || !online || !report.ready} onClick={() => perform(async () => setReport(await request<ImportReport>('/api/collection-import', 'POST', { mode: 'apply', manifest })), 'Collection imported. Existing metadata was preserved.')}>Import this collection</Button>}
       </>}
     </section>}
