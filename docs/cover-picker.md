@@ -1,0 +1,9 @@
+# Choosing book covers
+
+Open a book in Library and select **Choose cover**. The picker searches Open Library works and their editions, plus Google Books, without leaving the page. Select a thumbnail for a larger preview, then **Use this cover**. **Keep current cover** closes the picker without saving. **Remove cover** deliberately keeps a placeholder. Search title and author can be edited independently of the saved book metadata.
+
+Results include edition publisher, publication date and ISBN where supplied. Exact ISBN matches sort first. Results are bounded to 60 distinct image URLs, using up to two Open Library works' first 40 editions and 20 Google Books search results. They are suggestions for manual selection, not proof that a jacket matches the physical edition. Broken images cannot be selected. Individual provider failures show a warning while other results remain usable. A server-side `GOOGLE_BOOKS_API_KEY` can be configured for Google Books quota; it must never be exposed in browser code or committed. Google results may be unavailable without sufficient provider quota.
+
+The authenticated `/api/books/:id/covers` GET endpoint searches only after verifying book ownership. PATCH accepts a provider cover URL or null, updates only the signed-in user's book, and sets `coverLocked=true`. The additive migration adds this flag with a false default. All automatic enrichment paths exclude locked covers and guard writes atomically, so a manual choice or removal wins an in-flight automatic lookup. Ordinary book metadata PATCH also locks explicit cover changes. Import reruns preserve these choices.
+
+Deployment needs the additive migration and regenerated Prisma client before serving the new code. Development verification applies only to the localhost Docker database; no production migration is authorized by this change. Restart a running Windows dev server after regenerating Prisma so its loaded client recognizes the new field.

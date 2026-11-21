@@ -56,22 +56,21 @@ export function isValidIsbn10(isbn: string): boolean {
 }
 
 export function extractIsbnFromBarcode(barcode: string): string | null {
-  const normalized = normalizeToIsbn13(barcode)
-  if (normalized && isValidIsbn13(normalized)) {
-    return normalized
-  }
+  const verified = (value: string) => {
+    const normalized = normalizeToIsbn13(value);
+    return normalized && /^(978|979)/.test(normalized) && isValidIsbn13(normalized) ? normalized : null;
+  };
+  const normalized = verified(barcode.trim());
+  if (normalized) return normalized;
 
-  const patterns = [/978\d{10}/, /979\d{10}/, /\d{9}[\dX]/i]
-
+  // Never manufacture an ISBN from ten digits embedded in a UPC/EAN or other
+  // longer numeric identifier. A coincidental ISBN-10 checksum is not evidence.
+  const patterns = [/(?<![\dX])(?:978|979)\d{10}(?![\dX])/gi, /(?<![\dX])\d{9}[\dX](?![\dX])/gi];
   for (const pattern of patterns) {
-    const match = barcode.match(pattern)
-    if (match) {
-      const result = normalizeToIsbn13(match[0])
-      if (result && isValidIsbn13(result)) {
-        return result
-      }
+    for (const match of barcode.matchAll(pattern)) {
+      const result = verified(match[0]);
+      if (result) return result;
     }
   }
-
-  return null
+  return null;
 }

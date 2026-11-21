@@ -31,6 +31,9 @@ export const PATCH = withAuth(async (request: NextRequest, session) => {
       if (result.error === 'NOT_FOUND') {
         return errorResponse('NOT_FOUND', 'Book not found', 404)
       }
+      if (result.error === 'WORK_NOT_FOUND') {
+        return errorResponse('WORK_NOT_FOUND', 'Work not found', 404)
+      }
       if (result.error === 'DUPLICATE_ISBN') {
         return errorResponse('DUPLICATE_ISBN', 'ISBN already exists', 409)
       }

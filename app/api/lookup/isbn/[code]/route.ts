@@ -3,7 +3,6 @@ import { withAuth } from '@/lib/api/withAuth'
 import { lookupByIsbn } from '@/lib/metadata'
 import {
   extractIsbnFromBarcode,
-  normalizeToIsbn13,
   isValidIsbn13,
 } from '@/lib/books/isbn'
 import { checkOwnership } from '@/lib/books/service'
@@ -24,8 +23,7 @@ export const GET = withAuth(async (request: NextRequest, session) => {
 
     const code = request.nextUrl.pathname.split('/').pop()!
 
-    let isbn = extractIsbnFromBarcode(code)
-    if (!isbn) isbn = normalizeToIsbn13(code)
+    const isbn = extractIsbnFromBarcode(decodeURIComponent(code))
 
     const response = {
       isIsbn: false,

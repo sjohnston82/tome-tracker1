@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { coverTitleMatches } from "@/lib/metadata/cover-title";
 import { lookupByIsbn } from "@/lib/metadata";
 
 interface EnrichmentResult {
@@ -30,12 +31,16 @@ export async function enrichUserBooks(userId: string): Promise<EnrichmentResult>
       if (!book.isbn13) continue;
 
       const metadata = await lookupByIsbn(book.isbn13);
-      if (!metadata) continue;
+      // Catalogs can assign a physical ISBN to an unrelated title. Preserve
+      // manually corrected records rather than importing that book's fields.
+      if (!metadata || !coverTitleMatches(book.title, metadata.title)) continue;
 
       const updates: Record<string, any> = {};
+      let coverUpdated = false;
 
-      if (!book.coverUrl && metadata.coverUrl) {
-        updates.coverUrl = metadata.coverUrl;
+      if (!book.coverUrl && !book.coverLocked && metadata.coverUrl) {
+        const changed = await prisma.book.updateMany({ where: { id: book.id, userId, coverUrl: null, coverLocked: false }, data: { coverUrl: metadata.coverUrl } });
+        coverUpdated = changed.count > 0;
       }
       if (!book.publisher && metadata.publisher) {
         updates.publisher = metadata.publisher;
@@ -52,8 +57,8 @@ export async function enrichUserBooks(userId: string): Promise<EnrichmentResult>
           where: { id: book.id },
           data: updates,
         });
-        result.enriched += 1;
       }
+      if (coverUpdated || Object.keys(updates).length > 0) result.enriched += 1;
 
       await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error) {

@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify, JWTPayload } from "jose";
 
 export interface SessionPayload extends JWTPayload {
   userId: string;
+  credentialStamp?: string;
   email: string;
   role: "USER" | "ADMIN";
 }

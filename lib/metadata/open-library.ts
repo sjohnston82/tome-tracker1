@@ -1,3 +1,5 @@
+import { extractIsbnFromBarcode, normalizeToIsbn13 } from '@/lib/books/isbn'
+import { englishEditionFields, preferredSearchCover, searchEditionsSchema } from './search-edition-covers'
 import { BookMetadata, SearchResult, MetadataProvider } from './types'
 
 const BASE_URL = 'https://openlibrary.org'
@@ -8,6 +10,8 @@ export class OpenLibraryProvider implements MetadataProvider {
 
   async lookupByIsbn(isbn: string): Promise<BookMetadata | null> {
     try {
+      const requested = extractIsbnFromBarcode(isbn);
+      if (!requested) return null;
       const response = await fetch(`${BASE_URL}/isbn/${isbn}.json`, {
         next: { revalidate: 86400 },
       })
@@ -15,13 +19,15 @@ export class OpenLibraryProvider implements MetadataProvider {
       if (!response.ok) return null
 
       const data = await response.json()
-      const authorNames = await this.fetchAuthorNames(data.authors || [])
+      const identifiers = [...(Array.isArray(data.isbn_13) ? data.isbn_13 : []), ...(Array.isArray(data.isbn_10) ? data.isbn_10 : [])];
+      if (typeof data.title !== 'string' || !data.title.trim() || !identifiers.some(id => typeof id === 'string' && extractIsbnFromBarcode(id) === requested)) return null;
+      const authorNames = await this.fetchAuthorNames(Array.isArray(data.authors) ? data.authors : [])
 
       return {
         title: data.title,
         authors: authorNames,
-        isbn13: isbn.length === 13 ? isbn : undefined,
-        isbn10: isbn.length === 10 ? isbn : undefined,
+        isbn13: requested,
+        isbn10: identifiers.find(id => typeof id === 'string' && id.replace(/[-\s]/g, '').length === 10 && extractIsbnFromBarcode(id) === requested),
         publisher: data.publishers?.[0],
         publishedYear: this.parseYear(data.publish_date),
         coverUrl: data.covers?.[0]
@@ -46,7 +52,8 @@ export class OpenLibraryProvider implements MetadataProvider {
       const params = new URLSearchParams({
         q: query,
         limit: '10',
-        fields: 'title,author_name,isbn,cover_i,first_publish_year',
+        fields: `title,author_name,isbn,cover_i,first_publish_year,${englishEditionFields}`,
+        lang: 'en',
       })
 
       const response = await fetch(`${BASE_URL}/search.json?${params}`, {
@@ -57,13 +64,17 @@ export class OpenLibraryProvider implements MetadataProvider {
 
       const data = await response.json()
 
-      return data.docs.map((doc: any) => ({
-        title: doc.title,
-        authors: doc.author_name || [],
-        isbn13: doc.isbn?.find((i: string) => i.length === 13),
-        coverUrl: doc.cover_i ? `${COVERS_URL}/b/id/${doc.cover_i}-M.jpg` : undefined,
-        publishedYear: doc.first_publish_year,
-      }))
+      return data.docs.map((doc: any) => {
+        const parsed = searchEditionsSchema.safeParse(doc.editions);
+        const cover = parsed.success ? preferredSearchCover({ cover_i: doc.cover_i, editions: parsed.data }) : null;
+        return {
+          title: cover?.title ?? doc.title,
+          authors: doc.author_name || [],
+          isbn13: cover?.isbn.map(normalizeToIsbn13).find((id): id is string => !!id),
+          coverUrl: cover ? `${COVERS_URL}/b/id/${cover.coverId}-M.jpg` : undefined,
+          publishedYear: doc.first_publish_year,
+        };
+      })
     } catch (error) {
       console.error('Open Library search error:', error)
       return []

@@ -9,7 +9,9 @@ export const GET = withAuth(async (request, session) => {
       getLibraryStats(session.userId),
     ])
 
-    return successResponse({ ...snapshot, stats })
+    const response = successResponse({ ...snapshot, stats, userId: session.userId })
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
   } catch (error) {
     return handleApiError(error)
   }

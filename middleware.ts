@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth/jwt";
 
 // Routes that require authentication
-const protectedRoutes = ["/library", "/settings", "/scan", "/admin"];
-
-// Routes that should redirect to library if already authenticated
-const authRoutes = ["/login", "/register"];
+const protectedRoutes = ["/library", "/series", "/activity", "/settings", "/scan", "/admin"];
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -16,10 +13,7 @@ export async function middleware(request: NextRequest) {
     session = await verifyToken(token);
   }
 
-  // Redirect authenticated users away from auth pages
-  if (session && authRoutes.some((route) => path.startsWith(route))) {
-    return NextResponse.redirect(new URL("/library", request.url));
-  }
+  // Login remains reachable so a revoked or expired server-side session can be renewed.
 
   // Redirect unauthenticated users to login
   if (!session && protectedRoutes.some((route) => path.startsWith(route))) {
