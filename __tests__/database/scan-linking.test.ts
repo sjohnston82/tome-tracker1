@@ -12,7 +12,7 @@ beforeEach(async () => {
 afterEach(async () => { await prisma.user.deleteMany({ where: { id: { in: [owner, other] } } }); });
 afterAll(async () => { await prisma.$disconnect(); });
 async function copy(userId = owner, isbn13: string | null = null, isbn10: string | null = null) {
-  const author = await prisma.author.create({ data: { userId, name: 'George R. R. Martin' } });
+  const author = await prisma.author.upsert({ where: { userId_name: { userId, name: 'George R. R. Martin' } }, update: {}, create: { userId, name: 'George R. R. Martin' } });
   return prisma.book.create({ data: { userId, authorId: author.id, title: 'A Clash of Kings', source: 'IMPORT', isbn13, isbn10, readingStatus: 'READING', coverLocked: true, coverUrl: 'https://covers.openlibrary.org/b/id/42-L.jpg', publisher: 'Manually corrected publisher', publicationYear: 1998, tags: ['personal'], genres: ['Fantasy'], importKey: crypto.randomUUID() } });
 }
 describe('scan linking against disposable PostgreSQL', () => {
