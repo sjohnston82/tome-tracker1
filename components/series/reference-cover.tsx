@@ -33,14 +33,14 @@ function lookup(key: string, id: string, wanted: () => boolean): Promise<string 
   return task;
 }
 export function ReferenceCover({ workId, title, author, savedUrl, allowReference }: { workId: string; title: string; author: string; savedUrl: string | null; allowReference: boolean }) {
-  const owner = useCacheOwner(), { preferences } = usePreferences();
+  const owner = useCacheOwner(), { preferences, ready } = usePreferences();
   const element = useRef<HTMLDivElement>(null);
   const [reference, setReference] = useState<{ key: string; url: string | null } | null>(null);
   const [failed, setFailed] = useState(false);
   const key = `${owner}:${workId}:${title}:${author}`;
   useEffect(() => {
     let active = true;
-    if (savedUrl || !allowReference || !owner || !preferences.autoCovers) return;
+    if (savedUrl || !allowReference || !owner || !ready || !preferences.autoCovers) return;
     const load = () => {
       observer?.disconnect(); setFailed(false);
       lookup(key, workId, () => active).then(url => { if (active) setReference({ key, url }); }).catch(() => { if (active) setFailed(true); });
@@ -48,6 +48,6 @@ export function ReferenceCover({ workId, title, author, savedUrl, allowReference
     const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) load(); }, { rootMargin: '160px' });
     if (observer && element.current) observer.observe(element.current); else load();
     return () => { active = false; observer?.disconnect(); };
-  }, [key, workId, savedUrl, allowReference, owner, preferences.autoCovers]);
+  }, [key, workId, savedUrl, allowReference, owner, ready, preferences.autoCovers]);
   return <div ref={element}><BookCover url={savedUrl ?? (allowReference && owner && reference?.key === key ? reference.url : null)} title={title} shelf />{failed && <span className="block text-xs mt-1">Cover unavailable</span>}</div>;
 }

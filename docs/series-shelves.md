@@ -14,7 +14,7 @@ The endpoint checks ownership before lookup or cache access. Its bounded process
 
 ## Verification
 
-Local: all 309 unit tests and TypeScript passed. New tests cover numeric ordering, author grouping, omnibus artwork/ownership, locked blank covers, full-series search and filter behavior, grayscale on hover, lazy loading, concurrency limits, cache/account isolation, authorization, TTLs and provider failures.
+Local: all 310 unit tests and TypeScript passed. New tests cover numeric ordering, author grouping, omnibus artwork/ownership, locked blank covers, full-series search and filter behavior, grayscale on hover, lazy loading, concurrency limits, cache/account isolation, authorization, TTLs and provider failures.
 
 The HTTP series flow additionally checks that saved locked artwork is exposed to its owner, another user sees no series or cover lookup, and the physical book count stays unchanged. Run in the disposable CI database through `.github/workflows/validate.yml`; never point these tests at a personal or production library.
 
