@@ -41,7 +41,7 @@ describe('lazy series reference artwork', () => {
     await act(async () => { resolve[1](); resolve[2]() })
     await waitFor(() => expect(screen.getAllByRole('img').every(image => image.getAttribute('data-url')?.includes('43'))).toBe(true))
   })
-  it('does not reuse another account’s in-memory artwork', async () => {
+  it('does not reuse another accountâ€™s in-memory artwork', async () => {
     vi.stubGlobal('IntersectionObserver', undefined)
     const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ coverUrl: 'https://covers.openlibrary.org/b/id/44-L.jpg' }) })
     vi.stubGlobal('fetch', fetcher)

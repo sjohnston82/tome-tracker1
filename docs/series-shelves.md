@@ -1,10 +1,10 @@
 # Series shelves
 
-Series opens as bookshelves grouped by author surname with the same A–Z rail as Library. Each recorded series gets a complete, numerically ordered row: prequels and fractional positions come before later volumes; unknown positions remain last. The most frequent main-entry author determines the group, falling back to all entries when there are no main entries. Collaborations use the earliest surname, and empty or unknown-author series appear under #.
+Series opens as bookshelves grouped by author surname with the same Aâ€“Z rail as Library. Each recorded series gets a complete, numerically ordered row: prequels and fractional positions come before later volumes; unknown positions remain last. The most frequent main-entry author determines the group, falling back to all entries when there are no main entries. Collaborations use the earliest surname, and empty or unknown-author series appear under #.
 
 Owned entries use color covers and link to the physical edition. Missing entries have grayscale, reduced-opacity artwork and an explicit Missing label; hovering never restores their color. Direct editions and omnibus content both count as owned. A shared omnibus can therefore appear for more than one work without creating additional physical books. A series can be recorded incompletely: the shelf shows all recorded entries and does not assert external catalog completeness.
 
-Search matches series, authors or titles and retains the full matching series. Manage checklist expands the existing editor immediately below that series shelf, with nothing selected on initial load. Checklist filters do not remove entries from the shelf. The carousel retains Library’s touch scrolling, keyboard arrows/Home/End, hover zoom, mouse-edge scrolling and previous/next controls.
+Search matches series, authors or titles and retains the full matching series. Manage checklist expands the existing editor immediately below that series shelf, with nothing selected on initial load. Checklist filters do not remove entries from the shelf. The carousel retains Libraryâ€™s touch scrolling, keyboard arrows/Home/End, hover zoom, mouse-edge scrolling and previous/next controls.
 
 ## Reference artwork
 

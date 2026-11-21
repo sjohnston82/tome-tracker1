@@ -31,7 +31,7 @@ describe('series shelves', () => {
     render(<SeriesShelves series={[series('Dresden', [entry('Missing novel'), owned])]} selected={null} onSelect={() => {}} details={() => null} />)
     const row = screen.getByRole('list', { name: 'Books in Dresden' })
     expect([...row.querySelectorAll('li')].map(item => item.getAttribute('data-entry-id'))).toEqual(['Owned novella', 'Missing novel'])
-    expect(within(row).getByRole('link', { name: 'Owned novella — Owned' }).getAttribute('href')).toBe('/library/book/omnibus')
+    expect(within(row).getByRole('link', { name: 'Owned novella â€” Owned' }).getAttribute('href')).toBe('/library/book/omnibus')
     const missing = within(row).getByRole('button', { name: /Missing novel/ })
     expect(missing.querySelector('[data-ownership=missing]')?.classList.contains('grayscale')).toBe(true)
     expect(row.querySelector('[data-ownership=owned]')?.classList.contains('grayscale')).toBe(false)
