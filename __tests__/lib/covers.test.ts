@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findBookCover } from '@/lib/metadata/covers'
+import { coverTitleMatches } from '@/lib/metadata/cover-title'
 beforeEach(() => vi.stubEnv('GOOGLE_BOOKS_API_KEY', ''))
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); vi.useRealTimers(); })
 const mock = (docs: unknown[]) => vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ docs }) }))
@@ -85,6 +86,66 @@ describe('conservative cover matching', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
     await expect(findBookCover('A Novel', 'An Author', null, true)).rejects.toThrow('HTTP 503');
     expect(await findBookCover('A Novel', 'An Author')).toBeNull();
+  });
+
+  it('matches split-edition subtitles and Roman part numbers without selecting the work jacket or Part II', async () => {
+    mock([{ title: 'The Reality Dysfunction', author_name: ['Peter F. Hamilton'], cover_i: 1000595, editions: { docs: [
+      { title: 'The Reality Dysfunction Part II', subtitle: 'Expansion', language: ['eng'], cover_i: 2 },
+      { title: 'The Reality Dysfunction Part I', subtitle: 'Emergence', language: ['eng'], cover_i: 286907 },
+    ] } }]);
+    expect(await findBookCover('The Reality Dysfunction, Part 1: Emergence', 'Peter F. Hamilton')).toContain('/286907-L.jpg');
+    expect(new URL(vi.mocked(fetch).mock.calls[0][0] as string).searchParams.get('fields')).toContain('editions.subtitle');
+    mock([{ title: 'The Reality Dysfunction', author_name: ['Peter F. Hamilton'], cover_i: 1000595 }]);
+    expect(await findBookCover('The Reality Dysfunction, Part 1: Emergence', 'Peter F. Hamilton')).toBeNull();
+  });
+  it('checks physical edition titles when expanding a parent work', async () => {
+    const fetcher = vi.fn(async (url: string) => ({ ok: true, json: async () => url.includes('/editions.json') ? { entries: [
+      { title: 'The Reality Dysfunction', covers: [1], languages: [{ key: '/languages/eng' }] },
+      { title: 'The Reality Dysfunction Part II', subtitle: 'Expansion', covers: [2], languages: [{ key: '/languages/eng' }] },
+      { title: 'The Reality Dysfunction Part I', subtitle: 'Emergence', covers: [3], languages: [{ key: '/languages/ger' }] },
+      { title: 'The Reality Dysfunction Part I', subtitle: 'Emergence', covers: [42], languages: [{ key: '/languages/eng' }] },
+    ] } : { docs: [{ key: '/works/OL474017W', title: 'The Reality Dysfunction', author_name: ['Peter F. Hamilton'], cover_i: 1, editions: { docs: [] } }] } }));
+    vi.stubGlobal('fetch', fetcher);
+    expect(await findBookCover('The Reality Dysfunction, Part 1: Emergence', 'Peter F. Hamilton')).toContain('/42-L.jpg');
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, json: async () => url.includes('/editions.json') ? { entries: [
+      { title: 'The Reality Dysfunction Part II', subtitle: 'Expansion', covers: [2], languages: [{ key: '/languages/eng' }] },
+      { covers: [3], languages: [{ key: '/languages/eng' }] },
+    ] } : { docs: [{ key: '/works/OL474017W', title: 'The Reality Dysfunction', author_name: ['Peter F. Hamilton'], cover_i: 1, editions: { docs: [] } }] } })));
+    expect(await findBookCover('The Reality Dysfunction, Part 1: Emergence', 'Peter F. Hamilton')).toBeNull();
+  });
+  it('combines Google subtitles while rejecting other physical parts and authors', async () => {
+    vi.stubEnv('GOOGLE_BOOKS_API_KEY', 'test-key');
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ items: [
+      { volumeInfo: { title: 'The Reality Dysfunction', authors: ['Peter F. Hamilton'], language: 'en', imageLinks: { thumbnail: 'https://books.google.com/books/content?id=whole' } } },
+      { volumeInfo: { title: 'The Reality Dysfunction Part II', subtitle: 'Expansion', authors: ['Peter F. Hamilton'], language: 'en', imageLinks: { thumbnail: 'https://books.google.com/books/content?id=wrong-part' } } },
+      { volumeInfo: { title: 'The Reality Dysfunction Part I', subtitle: 'Emergence', authors: ['Someone Else'], language: 'en', imageLinks: { thumbnail: 'https://books.google.com/books/content?id=wrong-author' } } },
+      { volumeInfo: { title: 'The Reality Dysfunction Part I', subtitle: 'Emergence', authors: ['Peter F. Hamilton'], language: 'en', imageLinks: { thumbnail: 'https://books.google.com/books/content?id=correct' } } },
+    ] }) });
+    vi.stubGlobal('fetch', fetcher);
+    expect(await findBookCover('The Reality Dysfunction, Part 1: Emergence', 'Peter F. Hamilton')).toContain('id=correct');
+    expect(new URL(fetcher.mock.calls[0][0]).searchParams.get('q')).toBe('intitle:"Reality Dysfunction" inauthor:"Peter F. Hamilton"');
+  });
+  it('normalizes only explicit part/volume numbering and preserves subtitle conflicts', () => {
+    expect(coverTitleMatches('Novel, Part 1: Emergence', 'Novel Part I', 'Emergence')).toBe(true);
+    expect(coverTitleMatches('Novel Volume 2', 'Novel Vol. II')).toBe(true);
+    expect(coverTitleMatches('I, Robot', '1 Robot')).toBe(false);
+    expect(coverTitleMatches('Novel Part 1: Emergence', 'Novel Part II', 'Emergence')).toBe(false);
+    expect(coverTitleMatches('Novel Part 1: Emergence', 'Novel Part I', 'Expansion')).toBe(false);
+    expect(coverTitleMatches('Novel Part 1', 'Novel Book I')).toBe(false);
+  });
+
+  it('matches Van Loon’s Geography when the provider stores its subtitle separately', async () => {
+    const title = "Van Loon's Geography: The Story of the World";
+    const author = 'Hendrik Willem van Loon';
+    mock([{ title: "Van Loon's geography", author_name: ['Hendrik Willem Van Loon'], cover_i: 6572958,
+      editions: { docs: [{ title: "Van Loon's geography", subtitle: 'the story of the world.', cover_i: 9438377, language: ['eng'] }] } }]);
+    expect(await findBookCover(title, author)).toContain('/9438377-L.jpg');
+    vi.stubEnv('GOOGLE_BOOKS_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ items: [{ volumeInfo: {
+      title: "Van Loon's Geography", subtitle: 'The Story of the World', authors: ['Hendrik Willem Van Loon'], language: 'en',
+      imageLinks: { thumbnail: 'https://books.google.com/books/content?id=geography' },
+    } }] }) }));
+    expect(await findBookCover(title, author)).toContain('id=geography');
   });
 
 })

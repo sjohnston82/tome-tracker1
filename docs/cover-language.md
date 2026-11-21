@@ -21,3 +21,11 @@ Open Library searches now allow 10 seconds and fetch five candidate works includ
 Each lookup has a shared 25-second provider budget. Cover batches process two books to fit that combined budget inside the 60-second route limit, including spelling retries. The endpoint permits 30 batches/minute, maintaining the previous maximum of 60 books/minute. Cursors continue beyond unmatched books, failed providers still produce error counts, and manually locked covers remain protected by conditional writes.
 
 A live two-book batch saved covers for The New Spring and Welcome to the Monkey House with zero errors. The image endpoint returned a nonempty JPEG with HTTP 200. Locked cover URLs and total library count were verified unchanged. Regression tests cover fast keyed Google results, foreign/provider-failure fallback, a six-second Open Library response, missing search-edition expansion and the smaller batch/cursor behavior.
+
+## Titles, subtitles and split volumes
+
+Automatic matching now compares provider titles together with their separately stored subtitles. Explicit Part/Pt. and Volume/Vol. numbering accepts canonical Roman or Arabic numerals; standalone Roman words are unchanged. Split-volume Google retrieval uses the parent title to avoid an over-restrictive quoted query, but selection still requires the full requested physical title and every author. Open Library requests edition subtitles and chooses a matching edition rather than the first English jacket. Parent works can lead to edition enumeration, but a whole-book or different-part cover cannot replace a requested split volume. Unknown edition titles are rejected for split-volume requests. Exact ISBN verification and manual cover locks remain unchanged.
+
+Regression fixtures include The Reality Dysfunction, Part 1: Emergence and Van Loon's Geography: The Story of the World, with separately stored subtitles, Roman part numbering, wrong-part and wrong-author alternatives, and actual edition expansion.
+
+Live read-only lookup confirmed automatic cover results for both example titles: Open Library edition cover 286907 for Emergence and a Google Books cover for Van Loon’s Geography. No library data was changed by these checks.
