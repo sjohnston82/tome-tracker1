@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import SeriesPage from '@/app/series/page'
 import type { ChecklistSeries } from '@/lib/series/checklist'
 
@@ -18,7 +18,7 @@ describe('series checklist interface', () => {
     render(<SeriesPage />)
     const button = await screen.findByRole('button', { name: /A Series/ })
     expect(button.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByText('First novella')).toBeNull()
+    expect(screen.queryByRole('region', { name: 'A Series checklist' })).toBeNull()
   })
   it('expands details immediately after the clicked series and collapses on a second click', async () => {
     const other = { ...data, id: 'series-two', name: 'Another Series', entries: [] }
@@ -27,37 +27,47 @@ describe('series checklist interface', () => {
     const button = await screen.findByRole('button', { name: /Another Series/ })
     fireEvent.click(button)
     expect(button.getAttribute('aria-expanded')).toBe('true')
-    expect(button.nextElementSibling?.getAttribute('aria-label')).toBe('Another Series checklist')
-    expect(screen.queryByText('First novella')).toBeNull()
+    expect(screen.getByRole('article', { name: 'Another Series shelf' }).contains(screen.getByRole('region', { name: 'Another Series checklist' }))).toBe(true)
+    expect(screen.queryByRole('region', { name: 'A Series checklist' })).toBeNull()
     fireEvent.click(button)
     expect(screen.queryByRole('region', { name: 'Another Series checklist' })).toBeNull()
   })
   it('shows owned omnibus contents, missing works, and unknown years', async () => {
     render(<SeriesPage />)
     fireEvent.click(await screen.findByRole('button', { name: /A Series/ }))
-    expect(await screen.findByText('First novella')).toBeDefined()
-    expect(screen.getByText('Second novel')).toBeDefined()
+    expect(within(screen.getByRole('region', { name: 'A Series checklist' })).getByText('First novella')).toBeDefined()
+    expect(within(screen.getByRole('region', { name: 'A Series checklist' })).getByText('Second novel')).toBeDefined()
     expect(screen.getByText(/Year unknown/)).toBeDefined()
     expect(screen.getByRole('link', { name: 'An Omnibus' }).getAttribute('href')).toBe('/library/book/edition')
   })
   it('filters missing works without changing ownership', async () => {
-    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByText('First novella')
+    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByRole('region', { name: 'A Series checklist' })
     fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'missing' } })
-    expect(screen.queryByText('First novella')).toBeNull()
-    expect(screen.getByText('Second novel')).toBeDefined()
+    expect(within(screen.getByRole('region', { name: 'A Series checklist' })).queryByText('First novella')).toBeNull()
+    expect(screen.getByRole('list', { name: 'Books in A Series' }).querySelectorAll('li')).toHaveLength(2)
+    expect(within(screen.getByRole('region', { name: 'A Series checklist' })).getByText('Second novel')).toBeDefined()
     expect(fetcher.mock.calls.every(call => !call[1]?.method || call[1].method === 'GET')).toBe(true)
   })
   it('updates the physical edition reading status rather than the literary work', async () => {
-    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByText('First novella')
+    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByRole('region', { name: 'A Series checklist' })
     fireEvent.change(screen.getByLabelText('Reading status for An Omnibus'), { target: { value: 'READING' } })
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/books/edition', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ readingStatus: 'READING' }) })))
   })
   it('offers existing-work membership and manual publication/order corrections', async () => {
-    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByText('First novella')
+    render(<SeriesPage />); fireEvent.click(await screen.findByRole('button', { name: /A Series/ })); await screen.findByRole('region', { name: 'A Series checklist' })
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0])
     expect(screen.getByLabelText('Original publication year')).toBeDefined()
     expect(screen.getByLabelText('Series position')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Look up metadata' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Link edition' })).toBeDefined()
   })
+})
+
+it('searches by author or a title while retaining the whole matching shelf', async () => {
+  render(<SeriesPage />)
+  await screen.findByRole('button', { name: /A Series/ })
+  for (const search of ['An Author', 'Second novel']) {
+    fireEvent.change(screen.getByLabelText('Search series, authors or titles'), { target: { value: search } })
+    expect(screen.getByRole('list', { name: 'Books in A Series' }).querySelectorAll('li')).toHaveLength(2)
+  }
 })

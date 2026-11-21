@@ -38,6 +38,7 @@ describe('series HTTP flow with actual signed sessions', () => {
 
   it('rejects anonymous access and another user’s edits, reads and edition links', async () => {
     expect((await call('/api/series', 'GET', undefined, '')).status).toBe(401)
+    expect((await call('/api/works/any-work/cover', 'GET', undefined, '')).status).toBe(401)
     const series = await prisma.series.findFirstOrThrow({ where: { userId: owner } })
     const work = await prisma.work.findFirstOrThrow({ where: { userId: owner } })
     const book = await prisma.book.findFirstOrThrow({ where: { userId: owner } })
@@ -45,6 +46,7 @@ describe('series HTTP flow with actual signed sessions', () => {
     expect((await call(`/api/works/${work.id}`, 'PATCH', { title: 'Unauthorized change' }, otherCookie)).status).toBe(404)
     expect((await call(`/api/works/${work.id}/editions`, 'POST', { bookId: book.id }, otherCookie)).status).toBe(404)
     expect((await call(`/api/works/${work.id}/metadata`, 'GET', undefined, otherCookie)).status).toBe(404)
+    expect((await call(`/api/works/${work.id}/cover`, 'GET', undefined, otherCookie)).status).toBe(404)
     expect((await prisma.work.findUniqueOrThrow({ where: { id: work.id } })).title).not.toBe('Unauthorized change')
   })
 
@@ -64,6 +66,10 @@ describe('series HTTP flow with actual signed sessions', () => {
     expect((await call(path, 'PATCH', { coverUrl }, otherCookie)).status).toBe(404)
     expect((await call(path, 'PATCH', { coverUrl })).status).toBe(200)
     expect(await prisma.book.findUnique({ where: { id: book.id } })).toMatchObject({ coverUrl, coverLocked: true })
+    const shelves = await (await call('/api/series')).json()
+    expect(shelves.series[0].entries[0].work.containedIn[0].book).toMatchObject({ coverUrl, coverLocked: true })
+    const otherShelves = await (await call('/api/series', 'GET', undefined, otherCookie)).json()
+    expect(otherShelves.series).toEqual([])
     expect((await call(path, 'PATCH', { coverUrl: null })).status).toBe(200)
     const result = await (await call('/api/enrichment/covers', 'POST', {})).json()
     expect(result.processed).toBe(0)

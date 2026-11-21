@@ -37,8 +37,8 @@ body {
 
 .book-carousel { scrollbar-width: none; -ms-overflow-style: none; }
 .book-carousel::-webkit-scrollbar { display: none; }
-.book-carousel > li:first-child > a { transform-origin: left center; }
-.book-carousel > li:last-child:not(:first-child) > a { transform-origin: right center; }
+.book-carousel > li:first-child > :is(a, button) { transform-origin: left center; }
+.book-carousel > li:last-child:not(:first-child) > :is(a, button) { transform-origin: right center; }
 @media (hover: hover) and (pointer: fine) {
   .book-carousel-card:hover { transform: scale(1.12); }
 }

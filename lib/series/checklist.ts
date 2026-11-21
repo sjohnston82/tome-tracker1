@@ -1,4 +1,4 @@
-export type EditionSummary = { id: string; title: string; readingStatus: 'UNKNOWN' | 'UNREAD' | 'READING' | 'READ'; isbn13: string | null }
+export type EditionSummary = { id: string; title: string; readingStatus: 'UNKNOWN' | 'UNREAD' | 'READING' | 'READ'; isbn13: string | null; coverUrl?: string | null; coverLocked?: boolean }
 export type ChecklistEntry = { id: string; position: string | number | null; entryType: string; isConfirmed: boolean; work: { id: string; title: string; authorName: string; publicationYear: number | null; editions: EditionSummary[]; containedIn: { book: EditionSummary }[] } }
 export type ChecklistSeries = { id: string; name: string; description: string | null; entries: ChecklistEntry[] }
 

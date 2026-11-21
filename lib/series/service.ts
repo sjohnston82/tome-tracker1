@@ -13,7 +13,7 @@ export async function listSeries(userId: string) {
     include: {
       entries: {
         where: { work: { userId } },
-        include: { work: { include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true } } } } } } },
+        include: { work: { include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } } } } } } },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       },
     },
@@ -27,7 +27,7 @@ export async function getSeries(userId: string, id: string) {
     include: {
       entries: {
         where: { work: { userId } },
-        include: { work: { include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true } } } } } } },
+        include: { work: { include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } } } } } } },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       },
     },
