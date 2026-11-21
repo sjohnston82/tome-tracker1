@@ -5,7 +5,7 @@ import { BarcodeScanner } from '@/components/scanner/barcode-scanner';
 type Callback = (result: { getText: () => string } | null) => void;
 const harness = vi.hoisted(() => ({ readers: [] as { callback?: Callback; reset: ReturnType<typeof vi.fn>; stopContinuousDecode: ReturnType<typeof vi.fn>; decodeFromStream: ReturnType<typeof vi.fn> }[] }));
 vi.mock('@zxing/library', () => ({
-  BarcodeFormat: { EAN_13: 7 }, DecodeHintType: { POSSIBLE_FORMATS: 2 },
+  BarcodeFormat: { EAN_13: 7, UPC_A: 14, UPC_E: 15, CODE_128: 4, CODE_39: 2 }, DecodeHintType: { POSSIBLE_FORMATS: 2 },
   BrowserMultiFormatReader: vi.fn(function () {
     const reader = { callback: undefined as Callback | undefined, reset: vi.fn(), stopContinuousDecode: vi.fn(), decodeFromStream: vi.fn() };
     reader.decodeFromStream.mockImplementation(async (_stream, _video, callback: Callback) => { reader.callback = callback; });
@@ -45,7 +45,7 @@ describe('phone barcode scanner lifecycle', () => {
     const onScan = vi.fn(); render(<BarcodeScanner active onScan={onScan} />);
     await waitFor(() => expect(harness.readers[0].callback).toBeDefined());
     scan(0, '4006381333931'); scan(0, '9780765311789');
-    expect(onScan).not.toHaveBeenCalled(); expect(screen.getByRole('status').textContent).toContain('978 or 979');
+    expect(onScan).not.toHaveBeenCalled(); expect(screen.getByRole('status').textContent).toContain('Non-ISBN barcode detected');
     scan(0, '9780765311788'); expect(onScan).toHaveBeenCalledOnce();
   });
   it('stops a permission request that finishes after the scanner unmounts', async () => {
@@ -71,4 +71,11 @@ describe('phone barcode scanner lifecycle', () => {
     rerender(<BarcodeScanner active onScan={vi.fn()} />);
     expect((await screen.findByRole('alert')).textContent).toContain('HTTPS or localhost');
   });
+  it('normalizes a genuine scanned ISBN-10 without treating a UPC as an ISBN', async () => {
+    const onScan = vi.fn(); render(<BarcodeScanner active onScan={onScan} />);
+    await waitFor(() => expect(harness.readers[0].callback).toBeDefined());
+    scan(0, '030640615200'); expect(onScan).not.toHaveBeenCalled();
+    scan(0, '0553579908'); expect(onScan).toHaveBeenCalledExactlyOnceWith('9780553579901');
+  });
+
 });

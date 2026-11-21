@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BarcodeFormat, BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
-import { isValidIsbn13 } from "@/lib/books/isbn";
+import { extractIsbnFromBarcode } from "@/lib/books/isbn";
 
 function cameraMessage(error: unknown): string {
   const name = error instanceof Error || error instanceof DOMException ? error.name : '';
@@ -28,7 +28,7 @@ export function BarcodeScanner({ onScan, active }: { onScan: (code: string) => v
     if (!video) return;
     let cancelled = false, accepted = false;
     let stream: MediaStream | undefined;
-    const hints = new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13]]]);
+    const hints = new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.CODE_39]]]);
     const reader = new BrowserMultiFormatReader(hints, 250);
     const stopTracks = () => stream?.getTracks().forEach(track => track.stop());
     setStarting(true); setError(null); setHint('Position the main ISBN barcode in frame');
@@ -45,14 +45,15 @@ export function BarcodeScanner({ onScan, active }: { onScan: (code: string) => v
         await reader.decodeFromStream(stream, video, result => {
           if (cancelled || accepted || !result) return;
           const code = result.getText().trim();
-          if (!/^(978|979)\d{10}$/.test(code) || !isValidIsbn13(code)) {
-            setHint('Use the main book barcode beginning 978 or 979');
+          const isbn = extractIsbnFromBarcode(code);
+          if (!isbn) {
+            setHint(`Non-ISBN barcode detected: ${code}. Try the barcode inside the front cover, or enter the printed ISBN below.`);
             return;
           }
           // Lock synchronously: several frames can arrive before React updates active.
           accepted = true;
           reader.reset(); stopTracks();
-          onScanRef.current(code);
+          onScanRef.current(isbn);
         });
         // Camera permission/video startup may finish after navigating away.
         if (cancelled || accepted) { reader.stopContinuousDecode(); stopTracks(); }

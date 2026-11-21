@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BarcodeScanner } from "@/components/scanner/barcode-scanner";
 import { ScanResult } from "@/components/scanner/scan-result";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScanTitleSearch } from "@/components/scanner/scan-title-search";
+import { extractIsbnFromBarcode } from "@/lib/books/isbn";
 import { OfflineGuard } from "@/components/offline/offline-guard";
 
 import { usePreferences } from "@/lib/preferences";
@@ -11,6 +15,11 @@ import { usePreferences } from "@/lib/preferences";
 export default function ScanPage() {
   const { preferences } = usePreferences();
   const router = useRouter();
+  const lookupLock = useRef(false);
+  const [manualIsbn, setManualIsbn] = useState('');
+  const [manualError, setManualError] = useState('');
+  const [scannedCode, setScannedCode] = useState('');
+  const [titleSearch, setTitleSearch] = useState(false);
   const [active, setActive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -18,7 +27,9 @@ export default function ScanPage() {
   const [existingBookId, setExistingBookId] = useState<string | null>(null);
 
   const handleScan = async (code: string) => {
-    if (loading) return;
+    if (lookupLock.current) return;
+    lookupLock.current = true;
+    setScannedCode(code); setManualError(''); setTitleSearch(false); setResult(null);
     setLoading(true);
     setError(null);
     setExistingBookId(null);
@@ -49,6 +60,7 @@ export default function ScanPage() {
       setError("Network error");
       setResult(null);
     } finally {
+      lookupLock.current = false;
       setLoading(false);
     }
   };
@@ -58,11 +70,12 @@ export default function ScanPage() {
 
     const payload = {
       title: result.metadata.title,
-      authorName: result.metadata.authors?.[0] || "Unknown",
+      authorName: result.metadata.authors?.join(" & ") || "Unknown",
       isbn13: result.normalizedIsbn,
       publisher: result.metadata.publisher || null,
       publicationYear: result.metadata.publishedYear || null,
       coverUrl: result.metadata.coverUrl || null,
+      coverLocked: !!result.corrected,
       seriesName: result.metadata.seriesName || null,
       seriesNumber: result.metadata.seriesNumber || null,
       tags: [],
@@ -72,7 +85,7 @@ export default function ScanPage() {
 
     const response = await fetch("/api/books", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Auto-Covers": preferences.autoCovers ? "on" : "off" },
+      headers: { "Content-Type": "application/json", "X-Auto-Covers": preferences.autoCovers && !result.corrected ? "on" : "off" },
       body: JSON.stringify(payload),
     });
 
@@ -94,6 +107,7 @@ export default function ScanPage() {
     setResult(null);
     setError(null);
     setExistingBookId(null);
+    setTitleSearch(false); setScannedCode('');
     setActive(true);
   };
 
@@ -111,7 +125,27 @@ export default function ScanPage() {
           <p className="text-gray-600">Point your camera at a barcode</p>
         </div>
         <BarcodeScanner onScan={handleScan} active={active} />
-        <ScanResult
+        {active && <form className="space-y-3 border rounded-lg p-4" onSubmit={event => {
+          event.preventDefault(); const isbn = extractIsbnFromBarcode(manualIsbn);
+          if (!isbn) { setManualError('Enter a valid ISBN-10 or ISBN-13, not a retail UPC or price code.'); return; }
+          void handleScan(isbn);
+        }}>
+          <Input label="Printed ISBN" placeholder="ISBN-10 or ISBN-13; hyphens are fine" value={manualIsbn} onChange={event => setManualIsbn(event.target.value)} required />
+          {manualError && <p role="alert" className="text-sm text-red-600">{manualError}</p>}
+          <Button type="submit" disabled={loading}>Look up ISBN</Button>
+          <p className="text-sm text-gray-500">Some paperbacks have a retail barcode outside and an ISBN barcode inside the front cover.</p>
+        </form>}
+        {scannedCode && <p className="text-sm text-gray-500">ISBN submitted: <span className="font-mono">{scannedCode}</span></p>}
+        {!loading && <div className="space-y-3">
+          <Button type="button" variant="secondary" onClick={() => { setActive(false); setTitleSearch(true); }}>Wrong book or no ISBN? Search by title</Button>
+          {titleSearch && <Button type="button" variant="ghost" onClick={handleScanAgain}>Return to camera</Button>}
+          {titleSearch && <ScanTitleSearch printedIsbn={scannedCode} onSelect={(book, keepIsbn) => {
+            setResult({ isIsbn: true, normalizedIsbn: keepIsbn ? scannedCode : null, owned: false, corrected: true, metadata: { title: book.title, authors: book.authors, coverUrl: book.coverUrl } });
+            setError(null); setExistingBookId(null); setTitleSearch(false); setActive(false);
+          }} />}
+        </div>}
+        {result?.corrected && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Title selected manually. Publication year and other edition details have not been verified.{!result.normalizedIsbn && ' No ISBN will be attached.'}</p>}
+        {!titleSearch && <ScanResult
           loading={loading}
           result={result}
           error={error}
@@ -119,7 +153,7 @@ export default function ScanPage() {
           onViewBook={handleViewBook}
           onScanAgain={handleScanAgain}
           existingBookId={existingBookId}
-        />
+        />}
       </div>
     </OfflineGuard>
   );

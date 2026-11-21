@@ -6,7 +6,7 @@ afterEach(() => vi.unstubAllGlobals())
 describe('OpenLibrary Provider', () => {
   it('maps edition metadata and resolves author references', async () => {
     const fetcher = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ title: 'The Way of Kings', authors: [{ key: '/authors/OL1A' }], publish_date: 'August 2010', covers: [123], publishers: ['Tor'] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ title: 'The Way of Kings', isbn_13: ['9780765326355'], authors: [{ key: '/authors/OL1A' }], publish_date: 'August 2010', covers: [123], publishers: ['Tor'] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ name: 'Brandon Sanderson' }) })
     vi.stubGlobal('fetch', fetcher)
     expect(await openLibrary.lookupByIsbn('9780765326355')).toMatchObject({ title: 'The Way of Kings', authors: ['Brandon Sanderson'], publishedYear: 2010, publisher: 'Tor', isbn13: '9780765326355' })
@@ -20,7 +20,7 @@ describe('OpenLibrary Provider', () => {
 
   it('keeps edition metadata when author lookup fails', async () => {
     vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ title: 'Unknown author', authors: [{ key: '/authors/OL1A' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ title: 'Unknown author', isbn_13: ['9780765326355'], authors: [{ key: '/authors/OL1A' }] }) })
       .mockRejectedValueOnce(new Error('network failure')))
     expect(await openLibrary.lookupByIsbn('9780765326355')).toMatchObject({ title: 'Unknown author', authors: [] })
   })
@@ -38,6 +38,17 @@ describe('OpenLibrary Provider', () => {
     vi.stubGlobal('fetch', fetcher);
     expect((await openLibrary.search('Mistborn'))[0]).toMatchObject({ coverUrl: 'https://covers.openlibrary.org/b/id/2-M.jpg', isbn13: '9780765311788' });
     expect(new URL(fetcher.mock.calls[0][0]).searchParams.get('lang')).toBe('en');
+  });
+
+  it('rejects missing or conflicting edition identifiers instead of relabelling another book', async () => {
+    for (const ids of [{}, { isbn_13: ['9780451187840'] }]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ title: 'Unrelated book', ...ids }) }));
+      expect(await openLibrary.lookupByIsbn('9780553579901')).toBeNull();
+    }
+  });
+  it('accepts a matching ISBN-10 edition for an ISBN-13 request', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ title: 'We the living', isbn_10: ['0451187849'] }) }));
+    expect(await openLibrary.lookupByIsbn('9780451187840')).toMatchObject({ title: 'We the living', isbn13: '9780451187840', isbn10: '0451187849' });
   });
 
 })

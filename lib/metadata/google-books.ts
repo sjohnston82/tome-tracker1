@@ -1,3 +1,4 @@
+import { extractIsbnFromBarcode } from '@/lib/books/isbn'
 import { BookMetadata, SearchResult, MetadataProvider } from './types'
 
 const BASE_URL = 'https://www.googleapis.com/books/v1'
@@ -7,6 +8,8 @@ export class GoogleBooksProvider implements MetadataProvider {
 
   async lookupByIsbn(isbn: string): Promise<BookMetadata | null> {
     try {
+      const requested = extractIsbnFromBarcode(isbn);
+      if (!requested) return null;
       const params = new URLSearchParams({ q: `isbn:${isbn}` });
       if (process.env.GOOGLE_BOOKS_API_KEY) params.set('key', process.env.GOOGLE_BOOKS_API_KEY);
       const response = await fetch(`${BASE_URL}/volumes?${params}`, {
@@ -17,16 +20,14 @@ export class GoogleBooksProvider implements MetadataProvider {
 
       const data = await response.json()
 
-      if (!data.items || data.items.length === 0) return null
-
-      const info = data.items[0].volumeInfo
-
-      const isbn13 = info.industryIdentifiers?.find(
-        (id: any) => id.type === 'ISBN_13'
-      )?.identifier
-      const isbn10 = info.industryIdentifiers?.find(
-        (id: any) => id.type === 'ISBN_10'
-      )?.identifier
+      // ISBN queries can return unrelated search hits. Verify the volume's own
+      // identifiers rather than accepting the first result or relabelling it.
+      const info = (Array.isArray(data.items) ? data.items : []).map((item: any) => item?.volumeInfo).find((volume: any) =>
+        typeof volume?.title === 'string' && volume.title.trim() && Array.isArray(volume.industryIdentifiers)
+        && volume.industryIdentifiers.some((id: any) => typeof id?.identifier === 'string' && extractIsbnFromBarcode(id.identifier) === requested));
+      if (!info) return null;
+      const isbn13 = requested;
+      const isbn10 = info.industryIdentifiers.find((id: any) => id.type === 'ISBN_10' && typeof id.identifier === 'string' && extractIsbnFromBarcode(id.identifier) === requested)?.identifier;
 
       return {
         title: info.title,

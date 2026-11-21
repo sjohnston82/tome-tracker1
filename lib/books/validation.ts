@@ -8,6 +8,7 @@ export const createBookSchema = z.object({
   publisher: z.string().max(200).optional().nullable(),
   publicationYear: z.number().int().min(1000).max(2100).optional().nullable(),
   coverUrl: z.string().url().optional().nullable(),
+  coverLocked: z.boolean().optional(),
   seriesName: z.string().max(200).optional().nullable(),
   seriesNumber: z.number().positive().optional().nullable(),
   readingStatus: z.enum(['UNKNOWN', 'UNREAD', 'READING', 'READ']).optional(),

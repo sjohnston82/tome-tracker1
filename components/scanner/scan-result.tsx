@@ -31,7 +31,7 @@ export function ScanResult({
   if (!result.isIsbn) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-center">
-        <p className="text-yellow-600 mb-4">Not a book barcode</p>
+        <p className="text-yellow-600 mb-4">This barcode is not a valid ISBN. Try the ISBN barcode inside the cover, or enter the printed ISBN.</p>
         <Button onClick={onScanAgain}>Scan again</Button>
       </div>
     );

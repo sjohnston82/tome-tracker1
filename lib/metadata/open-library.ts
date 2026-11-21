@@ -1,4 +1,4 @@
-import { normalizeToIsbn13 } from '@/lib/books/isbn'
+import { extractIsbnFromBarcode, normalizeToIsbn13 } from '@/lib/books/isbn'
 import { englishEditionFields, preferredSearchCover, searchEditionsSchema } from './search-edition-covers'
 import { BookMetadata, SearchResult, MetadataProvider } from './types'
 
@@ -10,6 +10,8 @@ export class OpenLibraryProvider implements MetadataProvider {
 
   async lookupByIsbn(isbn: string): Promise<BookMetadata | null> {
     try {
+      const requested = extractIsbnFromBarcode(isbn);
+      if (!requested) return null;
       const response = await fetch(`${BASE_URL}/isbn/${isbn}.json`, {
         next: { revalidate: 86400 },
       })
@@ -17,13 +19,15 @@ export class OpenLibraryProvider implements MetadataProvider {
       if (!response.ok) return null
 
       const data = await response.json()
-      const authorNames = await this.fetchAuthorNames(data.authors || [])
+      const identifiers = [...(Array.isArray(data.isbn_13) ? data.isbn_13 : []), ...(Array.isArray(data.isbn_10) ? data.isbn_10 : [])];
+      if (typeof data.title !== 'string' || !data.title.trim() || !identifiers.some(id => typeof id === 'string' && extractIsbnFromBarcode(id) === requested)) return null;
+      const authorNames = await this.fetchAuthorNames(Array.isArray(data.authors) ? data.authors : [])
 
       return {
         title: data.title,
         authors: authorNames,
-        isbn13: isbn.length === 13 ? isbn : undefined,
-        isbn10: isbn.length === 10 ? isbn : undefined,
+        isbn13: requested,
+        isbn10: identifiers.find(id => typeof id === 'string' && id.replace(/[-\s]/g, '').length === 10 && extractIsbnFromBarcode(id) === requested),
         publisher: data.publishers?.[0],
         publishedYear: this.parseYear(data.publish_date),
         coverUrl: data.covers?.[0]
