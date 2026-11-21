@@ -17,6 +17,8 @@ export default function ScanPage() {
   const { preferences } = usePreferences();
   const router = useRouter();
   const lookupLock = useRef(false);
+  const addLock = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [manualIsbn, setManualIsbn] = useState('');
   const [manualError, setManualError] = useState('');
   const [scannedCode, setScannedCode] = useState('');
@@ -26,7 +28,6 @@ export default function ScanPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [existingBookId, setExistingBookId] = useState<string | null>(null);
 
   const handleScan = async (code: string, legacy?: LegacyBookBarcode) => {
     if (lookupLock.current) return;
@@ -34,7 +35,6 @@ export default function ScanPage() {
     setScannedCode(code); setLegacyScan(legacy ?? null); setManualError(''); setTitleSearch(false); setResult(null);
     setLoading(true);
     setError(null);
-    setExistingBookId(null);
     setActive(false);
 
     try {
@@ -45,16 +45,6 @@ export default function ScanPage() {
         setError(data.message || "Lookup failed");
         setResult(null);
         return;
-      }
-
-      if (data.owned && data.normalizedIsbn) {
-        const checkResponse = await fetch(
-          `/api/library/check?isbn=${encodeURIComponent(data.normalizedIsbn)}`
-        );
-        if (checkResponse.ok) {
-          const checkData = await checkResponse.json();
-          setExistingBookId(checkData.bookId || null);
-        }
       }
 
       setResult(data);
@@ -68,47 +58,50 @@ export default function ScanPage() {
   };
 
   const handleAdd = async () => {
-    if (!result?.metadata) return;
+    if (!result?.metadata || addLock.current) return;
+    addLock.current = true; setSaving(true); setError(null);
+    try {
 
-    const payload = {
-      title: result.metadata.title,
-      authorName: result.metadata.authors?.join(" & ") || "Unknown",
-      isbn13: result.normalizedIsbn,
-      publisher: result.metadata.publisher || null,
-      publicationYear: result.metadata.publishedYear || null,
-      coverUrl: result.metadata.coverUrl || null,
-      coverLocked: !!result.corrected,
-      seriesName: result.metadata.seriesName || null,
-      seriesNumber: result.metadata.seriesNumber || null,
-      tags: [],
-      genres: result.metadata.subjects?.slice(0, 10) || [],
-      source: "SCAN",
-    };
+      const payload = {
+        title: result.metadata.title,
+        authorName: result.metadata.authors?.join(" & ") || "Unknown",
+        isbn13: result.normalizedIsbn,
+        publisher: result.metadata.publisher || null,
+        publicationYear: result.metadata.publishedYear || null,
+        coverUrl: result.metadata.coverUrl || null,
+        coverLocked: !!result.corrected,
+        seriesName: result.metadata.seriesName || null,
+        seriesNumber: result.metadata.seriesNumber || null,
+        tags: [],
+        genres: result.metadata.subjects?.slice(0, 10) || [],
+        source: "SCAN",
+      };
 
-    const response = await fetch("/api/books", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Auto-Covers": preferences.autoCovers && !result.corrected ? "on" : "off" },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch("/api/books", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Auto-Covers": preferences.autoCovers && !result.corrected ? "on" : "off" },
+        body: JSON.stringify(payload),
+      });
 
-    const data = await response.json();
-    if (response.ok) {
-      router.push(`/library/book/${data.book.id}`);
-      return;
-    }
+      const data = await response.json();
+      if (response.ok) {
+        router.push(`/library/book/${data.book.id}`);
+        return;
+      }
 
-    if (data.error_code === "DUPLICATE_ISBN" && data.details?.existingBookId) {
-      router.push(`/library/book/${data.details.existingBookId}`);
-      return;
-    }
+      if (data.error_code === "DUPLICATE_ISBN" && data.details?.existingBookId) {
+        router.push(`/library/book/${data.details.existingBookId}`);
+        return;
+      }
 
-    setError(data.message || "Failed to add book");
+      setError(data.message || "Failed to add book");
+    } catch { setError("The book could not be saved. Check your connection and try again."); }
+    finally { addLock.current = false; setSaving(false); }
   };
 
   const handleScanAgain = () => {
     setResult(null);
     setError(null);
-    setExistingBookId(null);
     setTitleSearch(false); setScannedCode(''); setLegacyScan(null);
     setActive(true);
   };
@@ -144,7 +137,7 @@ export default function ScanPage() {
           {titleSearch && <Button type="button" variant="ghost" onClick={handleScanAgain}>Return to camera</Button>}
           {titleSearch && <ScanTitleSearch printedIsbn={scannedCode} onSelect={(book, keepIsbn) => {
             setResult({ isIsbn: true, normalizedIsbn: keepIsbn ? scannedCode : null, owned: false, corrected: true, metadata: { title: book.title, authors: book.authors, coverUrl: book.coverUrl } });
-            setError(null); setExistingBookId(null); setTitleSearch(false); setActive(false);
+            setError(null); setTitleSearch(false); setActive(false);
           }} />}
         </div>}
         {result?.corrected && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Title selected manually. Publication year and other edition details have not been verified.{!result.normalizedIsbn && ' No ISBN will be attached.'}</p>}
@@ -155,7 +148,7 @@ export default function ScanPage() {
           onAdd={handleAdd}
           onViewBook={handleViewBook}
           onScanAgain={handleScanAgain}
-          existingBookId={existingBookId}
+          saving={saving}
         />}
       </div>
     </OfflineGuard>
