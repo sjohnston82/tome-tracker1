@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BarcodeFormat, BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
+import { BarcodeFormat, DecodeHintType, ResultMetadataType } from "@zxing/library";
+import { createBookBarcodeReader } from "@/lib/books/barcode-reader";
+import { legacyBookBarcode, type LegacyBookBarcode } from "@/lib/books/legacy-barcode";
 import { extractIsbnFromBarcode } from "@/lib/books/isbn";
 
 function cameraMessage(error: unknown): string {
@@ -12,13 +14,13 @@ function cameraMessage(error: unknown): string {
   return 'The camera could not start. Check camera permissions and try again.';
 }
 
-export function BarcodeScanner({ onScan, active }: { onScan: (code: string) => void; active: boolean }) {
+export function BarcodeScanner({ onScan, active }: { onScan: (code: string, legacy?: LegacyBookBarcode) => void; active: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const onScanRef = useRef(onScan);
   const [attempt, setAttempt] = useState(0);
   const [starting, setStarting] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hint, setHint] = useState('Position the main ISBN barcode in frame');
+  const [hint, setHint] = useState('Position the main barcode and any small barcode beside it in frame');
 
   // Parent state changes must not release and reacquire the camera.
   useEffect(() => { onScanRef.current = onScan; }, [onScan]);
@@ -27,11 +29,12 @@ export function BarcodeScanner({ onScan, active }: { onScan: (code: string) => v
     const video = videoRef.current;
     if (!video) return;
     let cancelled = false, accepted = false;
+    let previousLegacy = '', legacyReads = 0;
     let stream: MediaStream | undefined;
     const hints = new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.CODE_39]]]);
-    const reader = new BrowserMultiFormatReader(hints, 250);
+    const reader = createBookBarcodeReader(hints);
     const stopTracks = () => stream?.getTracks().forEach(track => track.stop());
-    setStarting(true); setError(null); setHint('Position the main ISBN barcode in frame');
+    setStarting(true); setError(null); setHint('Position the main barcode and any small barcode beside it in frame');
     void (async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
@@ -45,15 +48,26 @@ export function BarcodeScanner({ onScan, active }: { onScan: (code: string) => v
         await reader.decodeFromStream(stream, video, result => {
           if (cancelled || accepted || !result) return;
           const code = result.getText().trim();
-          const isbn = extractIsbnFromBarcode(code);
+          const supplement = result.getResultMetadata()?.get(ResultMetadataType.UPC_EAN_EXTENSION);
+          let isbn = extractIsbnFromBarcode(code);
+          const legacy = isbn ? null : legacyBookBarcode(code, supplement);
+          if (legacy) {
+            const key = `${legacy.upc}:${legacy.supplement}`;
+            legacyReads = previousLegacy === key ? legacyReads + 1 : 1;
+            previousLegacy = key;
+            if (legacyReads < 2) { setHint('Reading legacy book barcode… hold both barcodes steady'); return; }
+            isbn = legacy.isbn13;
+          } else { previousLegacy = ''; legacyReads = 0; }
           if (!isbn) {
-            setHint(`Non-ISBN barcode detected: ${code}. Try the barcode inside the front cover, or enter the printed ISBN below.`);
+            const extra = typeof supplement === 'string' ? ` + ${supplement}` : '';
+            setHint(`Non-ISBN barcode detected: ${code}${extra}. Include the smaller five-digit barcode to the right in the frame. If it is unsupported, use the inside ISBN barcode or printed ISBN below.`);
             return;
           }
           // Lock synchronously: several frames can arrive before React updates active.
           accepted = true;
           reader.reset(); stopTracks();
-          onScanRef.current(isbn);
+          if (legacy) onScanRef.current(isbn, legacy);
+          else onScanRef.current(isbn);
         });
         // Camera permission/video startup may finish after navigating away.
         if (cancelled || accepted) { reader.stopContinuousDecode(); stopTracks(); }

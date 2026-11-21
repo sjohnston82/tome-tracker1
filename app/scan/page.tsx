@@ -7,6 +7,7 @@ import { ScanResult } from "@/components/scanner/scan-result";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScanTitleSearch } from "@/components/scanner/scan-title-search";
+import type { LegacyBookBarcode } from "@/lib/books/legacy-barcode";
 import { extractIsbnFromBarcode } from "@/lib/books/isbn";
 import { OfflineGuard } from "@/components/offline/offline-guard";
 
@@ -19,6 +20,7 @@ export default function ScanPage() {
   const [manualIsbn, setManualIsbn] = useState('');
   const [manualError, setManualError] = useState('');
   const [scannedCode, setScannedCode] = useState('');
+  const [legacyScan, setLegacyScan] = useState<LegacyBookBarcode | null>(null);
   const [titleSearch, setTitleSearch] = useState(false);
   const [active, setActive] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -26,10 +28,10 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [existingBookId, setExistingBookId] = useState<string | null>(null);
 
-  const handleScan = async (code: string) => {
+  const handleScan = async (code: string, legacy?: LegacyBookBarcode) => {
     if (lookupLock.current) return;
     lookupLock.current = true;
-    setScannedCode(code); setManualError(''); setTitleSearch(false); setResult(null);
+    setScannedCode(code); setLegacyScan(legacy ?? null); setManualError(''); setTitleSearch(false); setResult(null);
     setLoading(true);
     setError(null);
     setExistingBookId(null);
@@ -107,7 +109,7 @@ export default function ScanPage() {
     setResult(null);
     setError(null);
     setExistingBookId(null);
-    setTitleSearch(false); setScannedCode('');
+    setTitleSearch(false); setScannedCode(''); setLegacyScan(null);
     setActive(true);
   };
 
@@ -135,6 +137,7 @@ export default function ScanPage() {
           <Button type="submit" disabled={loading}>Look up ISBN</Button>
           <p className="text-sm text-gray-500">Some paperbacks have a retail barcode outside and an ISBN barcode inside the front cover.</p>
         </form>}
+        {legacyScan && <p className="text-sm text-gray-500">Legacy barcode matched: <span className="font-mono">{legacyScan.upc} + {legacyScan.supplement}</span>. Confirm the title and author before adding.</p>}
         {scannedCode && <p className="text-sm text-gray-500">ISBN submitted: <span className="font-mono">{scannedCode}</span></p>}
         {!loading && <div className="space-y-3">
           <Button type="button" variant="secondary" onClick={() => { setActive(false); setTitleSearch(true); }}>Wrong book or no ISBN? Search by title</Button>

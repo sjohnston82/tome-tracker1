@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BarcodeScanner } from '@/components/scanner/barcode-scanner';
 
-type Callback = (result: { getText: () => string } | null) => void;
+type Callback = (result: { getText: () => string; getResultMetadata: () => Map<number, string> } | null) => void;
 const harness = vi.hoisted(() => ({ readers: [] as { callback?: Callback; reset: ReturnType<typeof vi.fn>; stopContinuousDecode: ReturnType<typeof vi.fn>; decodeFromStream: ReturnType<typeof vi.fn> }[] }));
 vi.mock('@zxing/library', () => ({
   BarcodeFormat: { EAN_13: 7, UPC_A: 14, UPC_E: 15, CODE_128: 4, CODE_39: 2 }, DecodeHintType: { POSSIBLE_FORMATS: 2 },
-  BrowserMultiFormatReader: vi.fn(function () {
+  ResultMetadataType: { UPC_EAN_EXTENSION: 7 },
+}));
+vi.mock('@/lib/books/barcode-reader', () => ({ createBookBarcodeReader: vi.fn(function () {
     const reader = { callback: undefined as Callback | undefined, reset: vi.fn(), stopContinuousDecode: vi.fn(), decodeFromStream: vi.fn() };
     reader.decodeFromStream.mockImplementation(async (_stream, _video, callback: Callback) => { reader.callback = callback; });
     harness.readers.push(reader); return reader;
@@ -15,7 +17,7 @@ vi.mock('@zxing/library', () => ({
 const stop = vi.fn();
 const stream = { getTracks: () => [{ stop }] };
 const media = vi.fn();
-const scan = (index: number, code: string) => act(() => harness.readers[index].callback?.({ getText: () => code }));
+const scan = (index: number, code: string, supplement?: string) => act(() => harness.readers[index].callback?.({ getText: () => code, getResultMetadata: () => new Map(supplement === undefined ? [] : [[7, supplement]]) }));
 beforeEach(() => { harness.readers.length = 0; stop.mockClear(); media.mockReset().mockResolvedValue(stream); vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: media } }); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -76,6 +78,23 @@ describe('phone barcode scanner lifecycle', () => {
     await waitFor(() => expect(harness.readers[0].callback).toBeDefined());
     scan(0, '030640615200'); expect(onScan).not.toHaveBeenCalled();
     scan(0, '0553579908'); expect(onScan).toHaveBeenCalledExactlyOnceWith('9780553579901');
+  });
+
+  it('reads both parts of the user’s outside UPC before resolving We the Living', async () => {
+    const onScan = vi.fn(); render(<BarcodeScanner active onScan={onScan} />);
+    await waitFor(() => expect(harness.readers[0].callback).toBeDefined());
+    scan(0, '071162007992'); expect(onScan).not.toHaveBeenCalled();
+    scan(0, '071162007992', '18784'); expect(onScan).not.toHaveBeenCalled();
+    scan(0, '071162007992', '18784');
+    expect(onScan).toHaveBeenCalledExactlyOnceWith('9780451187840', { upc: '071162007992', supplement: '18784', isbn13: '9780451187840' });
+  });
+  it('does not combine changing supplements or change 18794 into 18784', async () => {
+    const onScan = vi.fn(); render(<BarcodeScanner active onScan={onScan} />);
+    await waitFor(() => expect(harness.readers[0].callback).toBeDefined());
+    scan(0, '071162007992', '18784'); scan(0, '071162007992', '18794');
+    expect(onScan).not.toHaveBeenCalled();
+    scan(0, '071162007992', '18794');
+    expect(onScan.mock.calls[0][0]).toBe('9780451187949');
   });
 
 });
