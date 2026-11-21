@@ -1,0 +1,9 @@
+# Phone scanning
+
+The camera scanner requests the rear-facing camera with ideal 1280×720 video, without audio. It decodes EAN-13 book barcodes and checks the 978/979 prefix and checksum locally. Invalid/non-book codes leave scanning active and show guidance rather than initiating a provider lookup. The small adjacent price barcode is not an ISBN.
+
+Each active attempt accepts one result synchronously. Parent callback changes do not restart capture; selecting Scan again starts a new attempt and permits the same ISBN immediately. Capture tracks stop after acceptance, when paused, on navigation and when a pending permission request completes after cleanup. Camera startup and permission/device failures have separate feedback, and camera failures have a retry control. The video element remains mounted during camera errors and is replaced between attempts to isolate late asynchronous work. Paused capture is compact so lookup results remain near the page heading.
+
+Automated component tests mock the camera and decoder to verify callback replacement, repeated frames, immediate rescanning, old callbacks, non-book/invalid barcodes, late permission completion, permission retry and inactive/unsupported states. These tests do not prove physical-camera barcode recognition or autofocus on a particular handset. Phone testing should cover a recognized ISBN, an unknown ISBN, repeat scanning, existing-ISBN ownership, permission denial/retry and leaving/reopening Scan.
+
+For remote testing the phone needs HTTPS, or localhost via USB port forwarding. A temporary HTTPS tunnel can reach the local development application. Imported books without an ISBN cannot be identified as owned solely from a barcode; ownership matching still depends on a recorded ISBN. Provider lookup and Add to library are separate steps, and scanning alone does not add a record.
