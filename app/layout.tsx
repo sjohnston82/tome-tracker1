@@ -51,7 +51,7 @@ export default async function RootLayout({
         <PreferencesProvider>
         <OfflineBanner />
         <Header user={user} />
-        <main className="min-h-screen pb-20 sm:pb-8">{children}</main>
+        <main className="min-h-screen pt-4 pb-20 sm:pb-8">{children}</main>
         {user && <MobileNav />}
         </PreferencesProvider></CacheOwnerProvider></ThemeProvider>
       </body>
