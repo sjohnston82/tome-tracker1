@@ -24,6 +24,8 @@ describe('series checklist interface', () => {
     const other = { ...data, id: 'series-two', name: 'Another Series', entries: [] }
     fetcher.mockImplementation(async (url: string) => ({ ok: true, status: 200, json: async () => url === '/api/series' ? { series: [data, other] } : url === '/api/library/sync' ? { authors: [] } : { import: null } }))
     render(<SeriesPage />)
+    await screen.findByRole('button', { name: /A Series/ })
+    fireEvent.click(screen.getByLabelText('Show series with no owned books'))
     const button = await screen.findByRole('button', { name: /Another Series/ })
     fireEvent.click(button)
     expect(button.getAttribute('aria-expanded')).toBe('true')
@@ -70,4 +72,14 @@ it('searches by author or a title while retaining the whole matching shelf', asy
     fireEvent.change(screen.getByLabelText('Search series, authors or titles'), { target: { value: search } })
     expect(screen.getByRole('list', { name: 'Books in A Series' }).querySelectorAll('li')).toHaveLength(2)
   }
+})
+
+it('hides catalog-only series until requested', async () => {
+  const missingOnly = { ...data, id: 'missing-only', name: 'Malazan short fiction', entries: [data.entries[1]] }
+  fetcher.mockImplementation(async (url: string) => ({ ok: true, status: 200, json: async () => url === '/api/series' ? { series: [data, missingOnly] } : url === '/api/library/sync' ? { authors: [] } : { import: null } }))
+  render(<SeriesPage />)
+  await screen.findByRole('button', { name: /A Series/ })
+  expect(screen.queryByRole('article', { name: 'Malazan short fiction shelf' })).toBeNull()
+  fireEvent.click(screen.getByLabelText('Show series with no owned books'))
+  expect(screen.getByRole('article', { name: 'Malazan short fiction shelf' })).toBeDefined()
 })

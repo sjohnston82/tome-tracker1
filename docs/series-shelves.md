@@ -14,8 +14,20 @@ The endpoint checks ownership before lookup or cache access. Its bounded process
 
 ## Verification
 
-Local: all 310 unit tests and TypeScript passed. New tests cover numeric ordering, author grouping, omnibus artwork/ownership, locked blank covers, full-series search and filter behavior, grayscale on hover, lazy loading, concurrency limits, cache/account isolation, authorization, TTLs and provider failures.
+Local: all 318 unit tests and TypeScript passed. New tests cover numeric ordering, author grouping, omnibus artwork/ownership, locked blank covers, full-series search and filter behavior, grayscale on hover, lazy loading, concurrency limits, cache/account isolation, authorization, TTLs and provider failures.
 
 The HTTP series flow additionally checks that saved locked artwork is exposed to its owner, another user sees no series or cover lookup, and the physical book count stays unchanged. Run in the disposable CI database through `.github/workflows/validate.yml`; never point these tests at a personal or production library.
 
 Manual acceptance: refresh Series; use the surname rail; scroll a long series by mouse, arrow controls and touch; compare colored entries to actual owned copies; open/close Manage checklist and filter its entries; verify a manually chosen cover still matches Library. Missing works without available public artwork show placeholders. No migration is needed.
+
+## Catalog reconciliation
+
+Series with no owned entries are hidden by default. Toggle **Show series with no owned books** to browse retained checklists; deleting the last physical copy does not delete works or imported checklists.
+
+The authenticated series list reconciles known Steven Erikson aliases (Bauchelain and Korbal Broach / Bauchelain & Korbal Broach, and Witness / Tales of Witness), unions ownership, and removes an unconfirmed extra omnibus installment when at least two contained works already represent it. Confirmed conflicting entries remain distinct for review. Merged entries carry their original series ID so editing always targets the actual saved membership. This is a read-only projection; no records are deleted or renamed, and import reruns cannot undo its display reconciliation.
+
+Unlinked owned editions can match exactly one catalog work by author and title, allowing punctuation and a leading “The”. Subtitles and volume identifiers are retained, and ambiguity or existing links to other works prevent inference. Saved titles, reading statuses, covers, and links remain unchanged. The current local collection has eight Jordan books: “The New Spring” now matches “New Spring”. All other currently owned Jordan titles already have explicit content links.
+
+Missing, unconfirmed Dark Tower positions use the numbered order documented at https://stephenking.com/darktower/book/, with The Wind Through the Keyhole at 4.5. Existing positions and confirmed corrections (including a confirmed blank position) win. Suggested positions include a source link in the checklist and become saved only through the existing correction form.
+
+The alphabet rail is centered in the viewport below the app header, retaining its own scrolling on shorter screens.

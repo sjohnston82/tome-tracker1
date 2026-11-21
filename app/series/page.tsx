@@ -23,6 +23,7 @@ export default function SeriesPage() {
   const [series, setSeries] = useState<ChecklistSeries[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [showUnowned, setShowUnowned] = useState(false)
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -67,7 +68,7 @@ export default function SeriesPage() {
     try { await operation(); await reload(); setNotice(message) } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save changes') } finally { setBusy(false) }
   }
   const current = series.find(s => s.id === selected)
-  const visibleSeries = series.filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.entries.some(e => e.work.title.toLowerCase().includes(search.toLowerCase()) || e.work.authorName.toLowerCase().includes(search.toLowerCase())))
+  const visibleSeries = series.filter(s => (showUnowned || s.id === selected || checklistStats(s).owned > 0) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.entries.some(e => e.work.title.toLowerCase().includes(search.toLowerCase()) || e.work.authorName.toLowerCase().includes(search.toLowerCase()))))
   const stats = current ? checklistStats(current) : null
   const entries = current?.entries.filter(entry => {
     const editions = ownedEditions(entry)
@@ -114,6 +115,7 @@ export default function SeriesPage() {
     {loading ? <p role="status" className="py-12 text-center">Loading your series…</p> : <div className="min-w-0">
       <div className="space-y-4">
         <Input aria-label="Search series, authors or titles" placeholder="Search series, authors or titles" value={search} onChange={e => setSearch(e.target.value)} />
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showUnowned} onChange={event => setShowUnowned(event.target.checked)} />Show series with no owned books</label>
         <SeriesShelves series={visibleSeries} selected={selected} onSelect={id => { setSelected(selected === id ? null : id); setFilter('all'); setEditing(null) }} details={s => <>{selected === s.id &&       <section id={`series-details-${s.id}`} aria-label={`${s.name} checklist`} className="min-w-0 py-4">
         {current && stats ? <>
           <div className="border rounded-2xl p-6 mb-5 bg-white dark:bg-gray-900">
@@ -128,7 +130,7 @@ export default function SeriesPage() {
             return <li key={entry.id} className="border rounded-xl p-4 sm:p-5 bg-white dark:bg-gray-900">
               <div className="flex items-start gap-4"><span className="min-w-10 text-center rounded-lg bg-gray-100 dark:bg-gray-800 p-2 text-sm font-semibold">{entry.position ?? '?'}</span>
                 <div className="flex-1 min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-lg">{entry.work.title}</h3><span className={`text-xs rounded-full px-2 py-1 ${editions.length ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>{editions.length ? 'Owned' : 'Missing'}</span>{year === new Date().getFullYear() && <span className="text-xs text-blue-600">Published this year</span>}{year !== null && year > new Date().getFullYear() && <span className="text-xs text-amber-700">Future date · verify release</span>}</div>
-                  <p className="text-sm text-gray-500 mt-1">{entry.work.authorName} · {year ?? 'Year unknown'} · {entry.entryType.toLowerCase()}{!entry.isConfirmed && ' · Order unconfirmed'}</p>
+                  <p className="text-sm text-gray-500 mt-1">{entry.work.authorName} · {year ?? 'Year unknown'} · {entry.entryType.toLowerCase()}{!entry.isConfirmed && ' · Order unconfirmed'}{entry.positionSource && <> · <a className="text-blue-600 underline" href={entry.positionSource} target="_blank" rel="noreferrer">Order reference</a></>}</p>
                   <div className="mt-3 space-y-2">{editions.map(book => <div key={book.id} className="flex flex-wrap items-center gap-3 text-sm"><Link className="text-blue-600 hover:underline" href={`/library/book/${book.id}`}>{book.title}</Link><select aria-label={`Reading status for ${book.title}`} className="border rounded-lg px-2 py-1 bg-white dark:bg-gray-900" disabled={busy || !online} value={book.readingStatus} onChange={e => perform(() => request(`/api/books/${book.id}`, 'PATCH', { readingStatus: e.target.value }), 'Reading status updated.')}>{Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>)}</div>
                 </div><button className="text-blue-600 text-sm hover:underline shrink-0" disabled={busy || !online} onClick={() => startEdit(entry)}>Edit</button>
               </div>
@@ -136,7 +138,7 @@ export default function SeriesPage() {
                 e.preventDefault()
                 perform(async () => {
                   await request(`/api/works/${entry.work.id}`, 'PATCH', { title: edit.title, authorName: edit.author, publicationYear: edit.year ? Number(edit.year) : null })
-                  await request(`/api/series/${current.id}/entries/${entry.id}`, 'PATCH', { position: edit.position ? Number(edit.position) : null, entryType: edit.type, isConfirmed: edit.confirmed })
+                  await request(`/api/series/${entry.seriesId ?? current.id}/entries/${entry.id}`, 'PATCH', { position: edit.position ? Number(edit.position) : null, entryType: edit.type, isConfirmed: edit.confirmed })
                   setEditing(null)
                 }, 'Corrections saved.')
               }}>

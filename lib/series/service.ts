@@ -1,3 +1,5 @@
+import { orderedSeriesEntries } from './shelves'
+import { reconcileCatalog } from './catalog-view'
 import { prisma } from '@/lib/db'
 import type { z } from 'zod'
 import { createSeriesSchema, createWorkSchema, createSeriesEntrySchema, updateSeriesSchema, updateWorkSchema, updateSeriesEntrySchema } from './validation'
@@ -8,7 +10,7 @@ type NewEntry = z.infer<typeof createSeriesEntrySchema>
 
 // All reads and mutations are scoped to the signed-in user's catalog.
 export async function listSeries(userId: string) {
-  return prisma.series.findMany({
+  const catalog = await prisma.series.findMany({
     where: { userId },
     include: {
       entries: {
@@ -19,6 +21,8 @@ export async function listSeries(userId: string) {
     },
     orderBy: { name: 'asc' },
   })
+  const books = await prisma.book.findMany({ where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true, workId: true, contents: { where: { work: { userId } }, select: { workId: true } }, author: { select: { name: true } } } })
+  return reconcileCatalog(catalog.map(series => ({ ...series, entries: series.entries.map(entry => ({ ...entry, position: entry.position?.toString() ?? null })) })), books).map(series => ({ ...series, entries: orderedSeriesEntries(series.entries) }))
 }
 
 export async function getSeries(userId: string, id: string) {

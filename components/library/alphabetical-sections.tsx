@@ -48,7 +48,7 @@ export function AlphabeticalSections<T>({ groups, children, idPrefix = 'authors'
         {children(group.authors, group.letter)}
       </section>)}
     </div>
-    <nav aria-label="Author alphabet" className="sticky top-20 max-h-[calc(100dvh-11rem)] overflow-y-auto rounded-full border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 py-2 shadow-sm">
+    <nav aria-label="Author alphabet" className="sticky top-[calc(50dvh+2rem)] -translate-y-1/2 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-full border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 py-2 shadow-sm">
       {AUTHOR_ALPHABET.map(letter => {
         const available = groups.some(group => group.letter === letter)
         return <button key={letter} type="button" disabled={!available} aria-label={`Jump to ${letter === '#' ? 'other authors' : letter}`} aria-current={available && active === letter ? 'location' : undefined} onClick={() => jump(letter)} className={`block w-full min-h-6 text-xs leading-6 font-semibold rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 disabled:text-gray-300 dark:disabled:text-gray-700 ${active === letter && available ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 enabled:hover:bg-blue-50 dark:enabled:hover:bg-blue-950'}`}>{letter}</button>
