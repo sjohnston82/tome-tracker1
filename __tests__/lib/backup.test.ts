@@ -19,3 +19,11 @@ describe('restorable backup validation', () => {
     const csv = libraryCSV(backupSchema.parse(fixture())); expect(csv).toContain('"A ""quoted"", book"'); expect(csv).toContain('"\'=DANGEROUS()"'); expect(csv).toContain('READING');
   });
 });
+
+it('validates ownership decisions before restore and remaps retained IDs safely', async () => {
+  const { OWNERSHIP_DATASET, remapOwnershipReport } = await import('@/lib/series/ownership-decisions')
+  const data = { ...fixture(), imports: [{ id: 'decisions', dataset: OWNERSHIP_DATASET, manifest: {}, report: { version: 1, exclusions: [{ workId: 'old-work', bookId: 'old-book' }, { workId: 'deleted-work', bookId: 'deleted-book' }] }, updatedAt: dates.updatedAt }] }
+  expect(backupSchema.safeParse(data).success).toBe(true)
+  expect(remapOwnershipReport(data.imports[0].report, new Map([['old-work', 'new-work']]), new Map([['old-book', 'new-book']]))).toEqual({ version: 1, exclusions: [{ workId: 'new-work', bookId: 'new-book' }] })
+  expect(backupSchema.safeParse({ ...data, imports: [{ ...data.imports[0], report: { version: 1, exclusions: 'invalid' } }] }).success).toBe(false)
+})

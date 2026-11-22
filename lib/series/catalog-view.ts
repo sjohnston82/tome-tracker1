@@ -1,3 +1,4 @@
+import type { OwnershipExclusion } from './ownership-decisions'
 import { authorPeople, formatAuthorName } from '@/lib/books/author-sort'
 import { ownedEditions, type ChecklistEntry, type ChecklistSeries, type EditionSummary } from './checklist'
 
@@ -5,7 +6,7 @@ const text = (value: string) => value.normalize('NFKD').toLowerCase().replace(/[
 const authorKey = (name: string) => authorPeople(name).map(person => text(formatAuthorName(person))).sort().join('|')
 // Only punctuation and an optional leading article vary. Never drop subtitles or volume numbers.
 const titleKey = (title: string) => text(title).replace(/^the /, '')
-const workKey = (title: string, author: string) => `${authorKey(author)}:${titleKey(title)}`
+export const ownershipIdentity = (title: string, author: string) => `${authorKey(author)}:${titleKey(title)}`
 export function canonicalSeriesName(name: string, author: string): string {
   const key = text(name)
   if (authorKey(author) === authorKey('Steven Erikson')) {
@@ -20,7 +21,7 @@ const darkTower: Record<string, number> = { 'gunslinger': 1, 'drawing of the thr
 export type CatalogBook = EditionSummary & { author: { name: string }; workId: string | null; contents: { workId: string }[] }
 
 /** Non-destructive catalog reconciliation. IDs still target original records when editing. */
-export function reconcileCatalog(source: ChecklistSeries[], books: CatalogBook[]): ChecklistSeries[] {
+export function reconcileCatalog(source: ChecklistSeries[], books: CatalogBook[], exclusions: OwnershipExclusion[] = []): ChecklistSeries[] {
   const groups = new Map<string, ChecklistSeries[]>()
   for (const series of source) {
     const author = series.entries.find(entry => entry.entryType === 'MAIN')?.work.authorName ?? series.entries[0]?.work.authorName ?? ''
@@ -37,7 +38,7 @@ export function reconcileCatalog(source: ChecklistSeries[], books: CatalogBook[]
     const entries = new Map<string, ChecklistEntry>()
     for (const record of [primary, ...records.filter(item => item !== primary)]) for (const entry of record.entries) {
       const key = `${authorKey(entry.work.authorName)}:${text(entry.work.title)}`
-      const incoming = { ...entry, seriesId: entry.seriesId ?? record.id, work: { ...entry.work, editions: [...entry.work.editions], containedIn: [...entry.work.containedIn] } }
+      const incoming = { ...entry, ownershipWorkIds: entry.ownershipWorkIds ?? [entry.work.id], ownershipLinks: entry.ownershipLinks ?? [...entry.work.editions.map(book => ({ bookId: book.id, workId: entry.work.id, source: 'edition' as const })), ...entry.work.containedIn.map(link => ({ bookId: link.book.id, workId: entry.work.id, source: 'content' as const }))], seriesId: entry.seriesId ?? record.id, work: { ...entry.work, editions: [...entry.work.editions], containedIn: [...entry.work.containedIn] } }
       const previous = entries.get(key)
       if (!previous) entries.set(key, incoming)
       else if (previous.isConfirmed && incoming.isConfirmed && (String(previous.position) !== String(incoming.position) || previous.entryType !== incoming.entryType || (previous.work.publicationYear !== null && incoming.work.publicationYear !== null && previous.work.publicationYear !== incoming.work.publicationYear))) {
@@ -47,7 +48,7 @@ export function reconcileCatalog(source: ChecklistSeries[], books: CatalogBook[]
         // A confirmed correction wins. Ownership unions never create physical editions.
         const preferred = incoming.isConfirmed && !previous.isConfirmed ? incoming : previous
         const other = preferred === incoming ? previous : incoming
-        entries.set(key, { ...preferred, position: preferred.position ?? (preferred.isConfirmed ? null : other.position), work: { ...preferred.work, editions: [...new Map([...preferred.work.editions, ...other.work.editions].map(book => [book.id, book])).values()], containedIn: [...new Map([...preferred.work.containedIn, ...other.work.containedIn].map(link => [link.book.id, link])).values()] } })
+        entries.set(key, { ...preferred, ownershipWorkIds: [...new Set([...(preferred.ownershipWorkIds ?? [preferred.work.id]), ...(other.ownershipWorkIds ?? [other.work.id])])], ownershipLinks: [...new Map([...(preferred.ownershipLinks ?? []), ...(other.ownershipLinks ?? [])].map(link => [JSON.stringify(link), link])).values()], position: preferred.position ?? (preferred.isConfirmed ? null : other.position), work: { ...preferred.work, editions: [...new Map([...preferred.work.editions, ...other.work.editions].map(book => [book.id, book])).values()], containedIn: [...new Map([...preferred.work.containedIn, ...other.work.containedIn].map(link => [link.book.id, link])).values()] } })
       }
     }
     // An omnibus already represented by its contents is not an extra installment.
@@ -69,12 +70,12 @@ export function reconcileCatalog(source: ChecklistSeries[], books: CatalogBook[]
   // works remain missing for manual review; an existing different link is never inferred away.
   const works = new Map<string, Set<string>>()
   for (const series of catalog) for (const entry of series.entries) {
-    const key = workKey(entry.work.title, entry.work.authorName), ids = works.get(key) ?? new Set<string>()
+    const key = ownershipIdentity(entry.work.title, entry.work.authorName), ids = works.get(key) ?? new Set<string>()
     ids.add(entry.work.id); works.set(key, ids)
   }
   return catalog.map(series => ({ ...series, entries: series.entries.map(entry => {
-    const key = workKey(entry.work.title, entry.work.authorName)
-    const matched = works.get(key)?.size === 1 ? books.filter(book => authorKey(book.author.name) && !/^unknown(?: author)?$/.test(text(book.author.name)) && !book.workId && !book.contents.length && workKey(book.title, book.author.name) === key) : []
-    return { ...entry, work: { ...entry.work, editions: [...new Map([...entry.work.editions, ...matched].map(book => [book.id, book])).values()] } }
+    const key = ownershipIdentity(entry.work.title, entry.work.authorName)
+    const matched = works.get(key)?.size === 1 ? books.filter(book => !exclusions.some(pair => pair.bookId === book.id && (entry.ownershipWorkIds ?? [entry.work.id]).includes(pair.workId)) && authorKey(book.author.name) && !/^unknown(?: author)?$/.test(text(book.author.name)) && !book.workId && !book.contents.length && ownershipIdentity(book.title, book.author.name) === key) : []
+    return { ...entry, ownershipLinks: [...new Map([...(entry.ownershipLinks ?? []), ...matched.map(book => ({ bookId: book.id, workId: entry.work.id, source: 'match' as const }))].map(link => [JSON.stringify(link), link])).values()], work: { ...entry.work, editions: [...new Map([...entry.work.editions, ...matched].map(book => [book.id, book])).values()] } }
   }) }))
 }

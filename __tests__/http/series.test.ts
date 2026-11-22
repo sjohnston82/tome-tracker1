@@ -122,4 +122,40 @@ describe('series HTTP flow with actual signed sessions', () => {
     expect(refreshed.series.find((item: { name: string }) => item.name === 'The Wheel of Time').entries[0].work.editions).toEqual([])
   })
 
+  it('reviews and corrects ownership over signed HTTP without changing or duplicating physical books', async () => {
+    const author = await prisma.author.create({ data: { userId: owner, name: 'Ownership Review Author' } })
+    const work = await prisma.work.create({ data: { userId: owner, title: 'Ownership Review Novel', authorName: author.name } })
+    await prisma.series.create({ data: { userId: owner, name: 'Ownership Review Test Series', entries: { create: { workId: work.id } } } })
+    const book = await prisma.book.create({ data: { userId: owner, authorId: author.id, title: work.title, source: 'MANUAL', readingStatus: 'READING', coverLocked: true } })
+    const path = `/api/works/${work.id}/ownership`
+    expect((await call(path, 'GET', undefined, '')).status).toBe(401)
+    expect((await call(path, 'POST', {}, '')).status).toBe(401)
+    expect((await call(path, 'GET', undefined, otherCookie)).status).toBe(404)
+    const initial = await call(path)
+    expect(initial.headers.get('cache-control')).toBe('private, no-store')
+    let review = (await initial.json()).review
+    expect(review.copies.find((copy: { id: string }) => copy.id === book.id).state).toBe('matched')
+    expect((await call(path, 'POST', { action: 'link', bookId: book.id, version: review.version, userId: other })).status).toBe(400)
+    const originalVersion = review.version
+    const rejected = await call(path, 'POST', { action: 'reject', bookId: book.id, version: review.version })
+    expect(rejected.status).toBe(200); review = (await rejected.json()).review
+    expect(review.copies.find((copy: { id: string }) => copy.id === book.id).state).toBe('excluded')
+    expect((await call(path, 'POST', { action: 'link', bookId: book.id, version: originalVersion })).status).toBe(409)
+    let catalog = await (await call('/api/series')).json()
+    expect(catalog.series.find((item: { name: string }) => item.name === 'Ownership Review Test Series').entries[0].work.editions).toEqual([])
+    const allowed = await call(path, 'POST', { action: 'allow', bookId: book.id, version: review.version })
+    expect(allowed.status).toBe(200); review = (await allowed.json()).review
+    const confirmed = await call(path, 'POST', { action: 'link', bookId: book.id, version: review.version })
+    expect(confirmed.status).toBe(200); review = (await confirmed.json()).review
+    expect(review.copies.find((copy: { id: string }) => copy.id === book.id).state).toBe('linked')
+    const removed = await call(path, 'POST', { action: 'unlink', bookId: book.id, version: review.version })
+    expect(removed.status).toBe(200); review = (await removed.json()).review
+    catalog = await (await call('/api/series')).json()
+    expect(catalog.series.find((item: { name: string }) => item.name === 'Ownership Review Test Series').entries[0].work.editions).toEqual([])
+    expect(await prisma.book.findUniqueOrThrow({ where: { id: book.id } })).toMatchObject({ title: book.title, readingStatus: 'READING', coverLocked: true })
+    expect(await prisma.bookContent.count({ where: { bookId: book.id } })).toBe(0)
+    await prisma.book.delete({ where: { id: book.id } })
+    expect((await call(path, 'POST', { action: 'link', bookId: book.id, version: review.version })).status).toBe(404)
+  })
+
 })

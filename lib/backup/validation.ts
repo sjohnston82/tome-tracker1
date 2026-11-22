@@ -1,3 +1,4 @@
+import { OWNERSHIP_DATASET, exclusionSchema } from '@/lib/series/ownership-decisions';
 import { z } from 'zod';
 const id = z.string().min(1).max(100);
 const text = z.string().max(10000);
@@ -16,6 +17,7 @@ const session = z.object({ id, bookId: id, baselinePage: z.number().int().min(0)
 const log = z.object({ id, sessionId: id, requestId: id, page: z.number().int().min(0).max(1000000), occurredAt: date, note: text, isCompletion: z.boolean(), createdAt: date });
 const collectionImport = z.object({ id, dataset: text.min(1), manifest: z.json(), report: z.json(), updatedAt: date });
 export const backupSchema = z.object({ format: z.literal('tome-tracker-backup'), version: z.literal(1), exportedAt: date, authors: z.array(author).max(10000), works: z.array(work).max(20000), books: z.array(book).max(10000), series: z.array(series).max(10000), entries: z.array(entry).max(30000), contents: z.array(content).max(30000), sessions: z.array(session).max(30000), logs: z.array(log).max(100000), imports: z.array(collectionImport).max(1000) }).superRefine((data, ctx) => {
+  if (data.imports.some(row => row.dataset === OWNERSHIP_DATASET && !exclusionSchema.safeParse(row.report).success)) ctx.addIssue({ code: 'custom', message: 'Backup contains invalid ownership decisions.' });
   const fail = (message: string) => ctx.addIssue({ code: 'custom', message });
   const unique = (values: (string | null)[], label: string) => { const valid = values.filter(v => v !== null); if (new Set(valid).size !== valid.length) fail(`Duplicate ${label} in backup.`); };
   for (const name of ['authors', 'works', 'books', 'series', 'entries', 'sessions', 'logs', 'imports'] as const) unique(data[name].map(x => x.id), name);

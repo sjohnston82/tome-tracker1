@@ -31,3 +31,5 @@ Unlinked owned editions can match exactly one catalog work by author and title, 
 Missing, unconfirmed Dark Tower positions use the numbered order documented at https://stephenking.com/darktower/book/, with The Wind Through the Keyhole at 4.5. Existing positions and confirmed corrections (including a confirmed blank position) win. Suggested positions include a source link in the checklist and become saved only through the existing correction form.
 
 The alphabet rail is centered in the viewport below the app header, retaining its own scrolling on shorter screens.
+
+Ownership provenance and correction controls are documented in [Ownership review](ownership-review.md). Suggested title matches remain visibly unconfirmed until reviewed; rejected copies are excluded from future automatic matching.

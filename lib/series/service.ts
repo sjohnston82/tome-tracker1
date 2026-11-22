@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client'
+import { OWNERSHIP_DATASET, readOwnershipExclusions } from './ownership-decisions'
 import { orderedSeriesEntries } from './shelves'
 import { reconcileCatalog } from './catalog-view'
 import { prisma } from '@/lib/db'
@@ -9,8 +11,8 @@ type NewWork = z.infer<typeof createWorkSchema>
 type NewEntry = z.infer<typeof createSeriesEntrySchema>
 
 // All reads and mutations are scoped to the signed-in user's catalog.
-export async function listSeries(userId: string) {
-  const catalog = await prisma.series.findMany({
+export async function listSeries(userId: string, client: Prisma.TransactionClient = prisma) {
+  const catalog = await client.series.findMany({
     where: { userId },
     include: {
       entries: {
@@ -21,8 +23,9 @@ export async function listSeries(userId: string) {
     },
     orderBy: { name: 'asc' },
   })
-  const books = await prisma.book.findMany({ where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true, workId: true, contents: { where: { work: { userId } }, select: { workId: true } }, author: { select: { name: true } } } })
-  return reconcileCatalog(catalog.map(series => ({ ...series, entries: series.entries.map(entry => ({ ...entry, position: entry.position?.toString() ?? null })) })), books).map(series => ({ ...series, entries: orderedSeriesEntries(series.entries) }))
+  const books = await client.book.findMany({ where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true, workId: true, contents: { where: { work: { userId } }, select: { workId: true } }, author: { select: { name: true } } } })
+  const decisions = await client.collectionImport.findUnique({ where: { userId_dataset: { userId, dataset: OWNERSHIP_DATASET } }, select: { report: true } })
+  return reconcileCatalog(catalog.map(series => ({ ...series, entries: series.entries.map(entry => ({ ...entry, position: entry.position?.toString() ?? null })) })), books, decisions ? readOwnershipExclusions(decisions.report) : []).map(series => ({ ...series, entries: orderedSeriesEntries(series.entries) }))
 }
 
 export async function getSeries(userId: string, id: string) {

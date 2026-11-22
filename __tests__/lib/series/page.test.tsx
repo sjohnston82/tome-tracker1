@@ -61,7 +61,7 @@ describe('series checklist interface', () => {
     expect(screen.getByLabelText('Original publication year')).toBeDefined()
     expect(screen.getByLabelText('Series position')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Look up metadata' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Link edition' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Review ownership for First novella' })).toBeDefined()
   })
 })
 

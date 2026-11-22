@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { checklistStats, ownedEditions, type ChecklistEntry, type ChecklistSeries } from '@/lib/series/checklist'
 import { Button } from '@/components/ui/button'
+import { OwnershipReview } from '@/components/series/ownership-review'
 import { SeriesShelves } from '@/components/series/series-shelves'
 import { Input } from '@/components/ui/input'
 
 const statuses = { UNKNOWN: 'Unknown', UNREAD: 'Unread', READING: 'Currently reading', READ: 'Read' }
 type ImportReport = { ready: boolean; applied?: boolean; reconciled?: boolean; actualOwned?: number; actualStatuses?: Record<string, number>; summary: { sourceOwned: number; newOwned: number; existingOwned: number; series: number; entries: number; expectedStatuses: Record<string, number> }; issues: { code: string; message: string; title?: string; sourceKey: string; blocking?: boolean }[] }
-type PhysicalBook = { id: string; title: string; author: string }
 type Candidate = { openLibraryId: string; title: string; authors: string[]; publicationYear: number | null; sourceUrl: string }
 
 async function request<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
@@ -29,7 +29,6 @@ export default function SeriesPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [physical, setPhysical] = useState<PhysicalBook[]>([])
   const [newName, setNewName] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [newAuthor, setNewAuthor] = useState('')
@@ -38,7 +37,7 @@ export default function SeriesPage() {
   const [newType, setNewType] = useState('MAIN')
   const [editing, setEditing] = useState<ChecklistEntry | null>(null)
   const [edit, setEdit] = useState({ title: '', author: '', year: '', position: '', type: 'MAIN', confirmed: false })
-  const [linkBook, setLinkBook] = useState('')
+  const [reviewWorkId, setReviewWorkId] = useState<string | null>(null)
   const [lookup, setLookup] = useState<{ message: string; candidates: Candidate[] } | null>(null)
   const [manifest, setManifest] = useState<unknown>(null)
   const [report, setReport] = useState<ImportReport | null>(null)
@@ -56,7 +55,7 @@ export default function SeriesPage() {
     updateOnline()
     window.addEventListener('online', updateOnline)
     window.addEventListener('offline', updateOnline)
-    Promise.all([reload(), request<{ authors: { name: string; books: { id: string; title: string }[] }[] }>('/api/library/sync').then(data => { if (active) setPhysical(data.authors.flatMap(a => a.books.map(b => ({ ...b, author: a.name })))) })])
+    reload()
       .catch(e => { if (active) setError(e.message) }).finally(() => { if (active) setLoading(false) })
     request<{ import: { report: ImportReport } | null }>('/api/collection-import').then(data => { if (active && data.import) setReport(data.import.report) }).catch(() => {})
     return () => { active = false; window.removeEventListener('online', updateOnline); window.removeEventListener('offline', updateOnline) }
@@ -69,14 +68,15 @@ export default function SeriesPage() {
   }
   const current = series.find(s => s.id === selected)
   const visibleSeries = series.filter(s => (showUnowned || s.id === selected || checklistStats(s).owned > 0) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.entries.some(e => e.work.title.toLowerCase().includes(search.toLowerCase()) || e.work.authorName.toLowerCase().includes(search.toLowerCase()))))
+  const ownershipSuggestions = [...new Map(series.flatMap(item => item.entries.flatMap(entry => (entry.ownershipLinks ?? []).filter(link => link.source === 'match').map(link => [`${entry.work.id}:${link.bookId}`, { seriesId: item.id, workId: entry.work.id }] as const)))).values()]
   const stats = current ? checklistStats(current) : null
   const entries = current?.entries.filter(entry => {
     const editions = ownedEditions(entry)
-    return filter === 'all' || (filter === 'missing' && !editions.length) || (filter === 'owned' && !!editions.length) || (filter === 'unread' && editions.some(b => b.readingStatus === 'UNREAD')) || (filter === 'reading' && editions.some(b => b.readingStatus === 'READING')) || (filter === 'review' && !entry.isConfirmed)
+    return filter === 'all' || (filter === 'missing' && !editions.length) || (filter === 'owned' && !!editions.length) || (filter === 'unread' && editions.some(b => b.readingStatus === 'UNREAD')) || (filter === 'reading' && editions.some(b => b.readingStatus === 'READING')) || (filter === 'review' && !entry.isConfirmed) || (filter === 'ownership' && !!entry.ownershipLinks?.some(link => link.source === 'match'))
   }) ?? []
   const works = [...new Map(series.flatMap(s => s.entries.map(e => [e.work.id, e.work] as const))).values()]
   const startEdit = (entry: ChecklistEntry) => {
-    setEditing(entry); setLookup(null); setLinkBook('')
+    setEditing(entry); setLookup(null)
     setEdit({ title: entry.work.title, author: entry.work.authorName, year: entry.work.publicationYear?.toString() ?? '', position: entry.position?.toString() ?? '', type: entry.entryType, confirmed: entry.isConfirmed })
   }
 
@@ -85,6 +85,7 @@ export default function SeriesPage() {
       <div><p className="text-sm text-blue-600 font-medium">TOME TRACKER / SERIES</p><h1 className="text-3xl font-bold mt-1">The whole story</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Your shelves, your reading progress, and the books still to find.</p></div>
       <Button variant="secondary" onClick={() => setShowImport(v => !v)}>Import collection</Button>
     </div>
+    {ownershipSuggestions.length > 0 && <div className="mb-4"><Button variant="secondary" onClick={() => { const first = ownershipSuggestions[0]; setSelected(first.seriesId); setFilter('ownership'); setSearch(''); setReviewWorkId(first.workId); requestAnimationFrame(() => document.getElementById(`series-details-${first.seriesId}`)?.scrollIntoView({ block: 'start', behavior: 'auto' })) }}>Review suggested ownership ({ownershipSuggestions.length})</Button></div>}
     {!online && <p role="status" className="mb-4 text-amber-700">You are offline. Series changes need an internet connection; your cached library is available in Library.</p>}
     {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 text-red-700 p-3">{error}</p>}
     {notice && <p role="status" className="mb-4 rounded-lg bg-green-50 text-green-800 p-3">{notice}</p>}
@@ -123,7 +124,7 @@ export default function SeriesPage() {
             <div className="grid grid-cols-3 gap-4 my-5">{[['Owned', stats.owned], ['Missing', stats.missing], ['Read', stats.read]].map(([label, count]) => <div key={label}><span className="block text-3xl font-semibold">{count}</span><span className="text-sm text-gray-500">{label}</span></div>)}</div>
             <p className="text-xs text-gray-500">{stats.total} entries recorded. Checklist completeness is unverified; unconfirmed positions need review. Missing publication years remain unknown.</p>
           </div>
-          <label className="text-sm font-medium">Show <select className="border rounded-lg px-3 py-2 ml-2 bg-white dark:bg-gray-900" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All entries</option><option value="owned">Owned</option><option value="missing">Missing</option><option value="unread">Unread</option><option value="reading">Currently reading</option><option value="review">Order to review</option></select></label>
+          <label className="text-sm font-medium">Show <select className="border rounded-lg px-3 py-2 ml-2 bg-white dark:bg-gray-900" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All entries</option><option value="owned">Owned</option><option value="missing">Missing</option><option value="unread">Unread</option><option value="reading">Currently reading</option><option value="review">Order to review</option><option value="ownership">Ownership matches to review</option></select></label>
           <ol className="mt-4 space-y-3">{entries.map(entry => {
             const editions = ownedEditions(entry)
             const year = entry.work.publicationYear
@@ -134,6 +135,8 @@ export default function SeriesPage() {
                   <div className="mt-3 space-y-2">{editions.map(book => <div key={book.id} className="flex flex-wrap items-center gap-3 text-sm"><Link className="text-blue-600 hover:underline" href={`/library/book/${book.id}`}>{book.title}</Link><select aria-label={`Reading status for ${book.title}`} className="border rounded-lg px-2 py-1 bg-white dark:bg-gray-900" disabled={busy || !online} value={book.readingStatus} onChange={e => perform(() => request(`/api/books/${book.id}`, 'PATCH', { readingStatus: e.target.value }), 'Reading status updated.')}>{Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>)}</div>
                 </div><button className="text-blue-600 text-sm hover:underline shrink-0" disabled={busy || !online} onClick={() => startEdit(entry)}>Edit</button>
               </div>
+              {entry.ownershipLinks?.some(link => link.source === 'match') && <p className="text-xs text-amber-700 mt-2">Ownership includes an unconfirmed library match.</p>}
+              <OwnershipReview workId={entry.work.id} title={entry.work.title} open={reviewWorkId === entry.work.id} onToggle={() => setReviewWorkId(reviewWorkId === entry.work.id ? null : entry.work.id)} disabled={busy || !online} onSaved={async () => { await reload(); setNotice('Ownership updated. Physical books and reading history are unchanged.') }} />
               {editing?.id === entry.id && <form className="border-t mt-4 pt-4 space-y-3" onSubmit={e => {
                 e.preventDefault()
                 perform(async () => {
@@ -147,7 +150,7 @@ export default function SeriesPage() {
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.confirmed} onChange={e => setEdit(v => ({ ...v, confirmed: e.target.checked }))} />I have verified this series position and entry type</label>
                 <div className="flex flex-wrap gap-2"><Button size="sm" disabled={busy || !online} type="submit">Save corrections</Button><Button size="sm" variant="secondary" type="button" onClick={() => setEditing(null)}>Cancel</Button><Button size="sm" variant="secondary" type="button" disabled={busy || !online} onClick={async () => { setBusy(true); setError(''); try { setLookup(await request(`/api/works/${entry.work.id}/metadata`)) } catch (e) { setError(e instanceof Error ? e.message : 'Lookup failed') } finally { setBusy(false) } }}>Look up metadata</Button></div>
                 {lookup && <div className="text-sm space-y-2"><p>{lookup.message}</p>{lookup.candidates.map(candidate => <div key={candidate.openLibraryId} className="border rounded p-3"><a href={candidate.sourceUrl} target="_blank" rel="noreferrer" className="text-blue-600">{candidate.title}</a> · {candidate.authors.join(', ')} · {candidate.publicationYear ?? 'Year unknown'}<button type="button" className="block text-blue-600 mt-1" onClick={() => setEdit(v => ({ ...v, title: candidate.title, author: candidate.authors[0] ?? v.author, year: candidate.publicationYear?.toString() ?? v.year }))}>Use these values in the form</button></div>)}</div>}
-                <div className="border-t pt-3"><label className="text-sm block">Link a physical book you own <select aria-label="Owned edition to link" className="block w-full border rounded p-2 mt-2 bg-white dark:bg-gray-900" value={linkBook} onChange={e => setLinkBook(e.target.value)}><option value="">Select an edition…</option>{physical.map(book => <option key={book.id} value={book.id}>{book.title} — {book.author}</option>)}</select></label><Button className="mt-2" size="sm" type="button" disabled={busy || !online || !linkBook} onClick={() => perform(() => request(`/api/works/${entry.work.id}/editions`, 'POST', { bookId: linkBook }), 'Edition linked. Physical book count is unchanged.')}>Link edition</Button></div>
+
               </form>}
             </li>
           })}</ol>

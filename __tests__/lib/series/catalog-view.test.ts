@@ -63,3 +63,16 @@ describe('non-destructive series reconciliation', () => {
     expect(reconcileCatalog(source, [omnibus])[0].entries).toHaveLength(3)
   })
 })
+
+it('retains actual ownership provenance across duplicate aliases and blocks rejected fallback matches', () => {
+  const owned = book('owned', 'No Life Forsaken', 'Steven Erikson')
+  const first = entry('canonical', 'No Life Forsaken'), alias = entry('alias', 'No Life Forsaken')
+  alias.work.containedIn = [{ book: owned }]
+  const merged = reconcileCatalog([series('canonical-series', 'Tales of Witness', [first]), series('alias-series', 'Witness', [alias])], [owned])[0].entries[0]
+  expect(merged.ownershipWorkIds).toEqual(['canonical', 'alias'])
+  expect(merged.ownershipLinks).toContainEqual({ bookId: 'owned', workId: 'alias', source: 'content' })
+  const raw = [series('wheel', 'The Wheel of Time', [entry('spring', 'New Spring', 'Robert Jordan')])]
+  const spring = book('spring-copy', 'The New Spring')
+  expect(reconcileCatalog(raw, [spring])[0].entries[0].ownershipLinks).toContainEqual({ bookId: spring.id, workId: 'spring', source: 'match' })
+  expect(reconcileCatalog(raw, [spring], [{ workId: 'spring', bookId: spring.id }])[0].entries[0].work.editions).toEqual([])
+})

@@ -1,3 +1,4 @@
+import { OWNERSHIP_DATASET, readOwnershipExclusions } from '@/lib/series/ownership-decisions'
 import { jsonObject, PREVIEW_DATASET, mergeReviewDecisions } from '@/lib/review/decisions'
 import { retryTransaction } from '@/lib/transaction-retry'
 import { Prisma } from '@prisma/client'
@@ -40,6 +41,8 @@ export async function applyCollectionImport(userId: string, input: unknown) {
   return retryTransaction(() => prisma.$transaction(async tx => {
     const plan = await preview(tx, userId, manifest)
     if (!plan.ready) return { applied: false, ready: false, summary: plan.summary, issues: plan.issues }
+    const ownershipRow = await tx.collectionImport.findUnique({ where: { userId_dataset: { userId, dataset: OWNERSHIP_DATASET } }, select: { report: true } })
+    const rejectedOwnership = ownershipRow ? readOwnershipExclusions(ownershipRow.report) : []
     const bookIds = new Map<string, string>()
     const workIds = new Map<string, string>()
     for (const action of plan.bookActions) {
@@ -70,6 +73,10 @@ export async function applyCollectionImport(userId: string, input: unknown) {
         if (!existing) await tx.seriesEntry.create({ data: { seriesId: series.id, workId, position: entry.position, entryType: entry.entryType, isConfirmed: false } })
         else if (String(existing.position) !== String(entry.position) || existing.entryType !== entry.entryType) plan.issues.push({ code: 'ORDER_CONFLICT', sourceKey: entry.sourceKey, message: `${source.name}: existing order/type preserved.` })
         for (const bookKey of entry.ownedSourceKeys) {
+          if (rejectedOwnership.some(pair => pair.workId === workId && pair.bookId === bookIds.get(bookKey))) {
+            plan.issues.push({ code: 'OWNERSHIP_REJECTED', sourceKey: entry.sourceKey, message: 'Your rejected ownership link was preserved; the physical copy remains in your library.' })
+            continue
+          }
           await tx.bookContent.upsert({ where: { bookId_workId: { bookId: bookIds.get(bookKey)!, workId } }, update: {}, create: { bookId: bookIds.get(bookKey)!, workId } })
         }
       }
