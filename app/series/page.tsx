@@ -83,6 +83,7 @@ export default function SeriesPage() {
   return <div className="max-w-7xl mx-auto px-4 py-8">
     <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
       <div><p className="text-sm text-blue-600 font-medium">TOME TRACKER / SERIES</p><h1 className="text-3xl font-bold mt-1">The whole story</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Your shelves, your reading progress, and the books still to find.</p></div>
+      <Link href="/series/merge" className="text-sm text-blue-600 underline self-center">Merge duplicate series</Link>
       <Button variant="secondary" onClick={() => setShowImport(v => !v)}>Import collection</Button>
     </div>
     {ownershipSuggestions.length > 0 && <div className="mb-4"><Button variant="secondary" onClick={() => { const first = ownershipSuggestions[0]; setSelected(first.seriesId); setFilter('ownership'); setSearch(''); setReviewWorkId(first.workId); requestAnimationFrame(() => document.getElementById(`series-details-${first.seriesId}`)?.scrollIntoView({ block: 'start', behavior: 'auto' })) }}>Review suggested ownership ({ownershipSuggestions.length})</Button></div>}

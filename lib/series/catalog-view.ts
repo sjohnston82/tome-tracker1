@@ -6,6 +6,7 @@ const text = (value: string) => value.normalize('NFKD').toLowerCase().replace(/[
 const authorKey = (name: string) => authorPeople(name).map(person => text(formatAuthorName(person))).sort().join('|')
 // Only punctuation and an optional leading article vary. Never drop subtitles or volume numbers.
 const titleKey = (title: string) => text(title).replace(/^the /, '')
+export const catalogIdentity = (title: string, author: string) => `${authorKey(author)}:${text(title)}`
 export const ownershipIdentity = (title: string, author: string) => `${authorKey(author)}:${titleKey(title)}`
 export function canonicalSeriesName(name: string, author: string): string {
   const key = text(name)
@@ -25,19 +26,19 @@ export function reconcileCatalog(source: ChecklistSeries[], books: CatalogBook[]
   const groups = new Map<string, ChecklistSeries[]>()
   for (const series of source) {
     const author = series.entries.find(entry => entry.entryType === 'MAIN')?.work.authorName ?? series.entries[0]?.work.authorName ?? ''
-    const name = canonicalSeriesName(series.name, author)
+    const name = series.managed ? series.name : canonicalSeriesName(series.name, author)
     const key = `${text(name)}:${authorKey(author)}`
     const list = groups.get(key) ?? []; list.push(series); groups.set(key, list)
   }
   const catalog: ChecklistSeries[] = []
   for (const records of groups.values()) {
     const author = records[0].entries[0]?.work.authorName ?? ''
-    const name = canonicalSeriesName(records[0].name, author)
+    const name = records.find(item => item.managed)?.name ?? canonicalSeriesName(records[0].name, author)
     // Prefer the correctly named record, then the one with the fuller checklist.
-    const primary = [...records].sort((a, b) => Number(b.name === name) - Number(a.name === name) || b.entries.length - a.entries.length)[0]
+    const primary = [...records].sort((a, b) => Number(!!b.managed) - Number(!!a.managed) || Number(b.name === name) - Number(a.name === name) || b.entries.length - a.entries.length)[0]
     const entries = new Map<string, ChecklistEntry>()
     for (const record of [primary, ...records.filter(item => item !== primary)]) for (const entry of record.entries) {
-      const key = `${authorKey(entry.work.authorName)}:${text(entry.work.title)}`
+      const key = `${catalogIdentity(entry.work.title, entry.work.authorName)}${entry.keepSeparate ? `:${entry.work.id}` : ''}`
       const incoming = { ...entry, ownershipWorkIds: entry.ownershipWorkIds ?? [entry.work.id], ownershipLinks: entry.ownershipLinks ?? [...entry.work.editions.map(book => ({ bookId: book.id, workId: entry.work.id, source: 'edition' as const })), ...entry.work.containedIn.map(link => ({ bookId: link.book.id, workId: entry.work.id, source: 'content' as const }))], seriesId: entry.seriesId ?? record.id, work: { ...entry.work, editions: [...entry.work.editions], containedIn: [...entry.work.containedIn] } }
       const previous = entries.get(key)
       if (!previous) entries.set(key, incoming)
@@ -58,7 +59,7 @@ export function reconcileCatalog(source: ChecklistSeries[], books: CatalogBook[]
       const contents = all.filter(other => other.work.id !== entry.work.id && other.work.containedIn.some(link => link.book.id === book.id))
       return new Set(contents.map(other => other.work.id)).size >= 2
     }))
-    catalog.push({ ...primary, name, entries: installments.map(entry => {
+    catalog.push({ ...primary, name, sourceSeriesIds: records.flatMap(item => item.sourceSeriesIds ?? [item.id]), entries: installments.map(entry => {
       if (text(name) === 'the dark tower' && authorKey(entry.work.authorName) === authorKey('Stephen King') && entry.position === null && !entry.isConfirmed) {
         const position = darkTower[titleKey(entry.work.title)]
         if (position !== undefined) return { ...entry, position, positionSource: 'https://stephenking.com/darktower/book/' }

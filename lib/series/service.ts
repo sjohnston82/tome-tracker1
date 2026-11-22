@@ -1,3 +1,4 @@
+import { MANAGEMENT_DATASET, readManagementState, applyManagementState } from './management-state'
 import type { Prisma } from '@prisma/client'
 import { OWNERSHIP_DATASET, readOwnershipExclusions } from './ownership-decisions'
 import { orderedSeriesEntries } from './shelves'
@@ -25,7 +26,12 @@ export async function listSeries(userId: string, client: Prisma.TransactionClien
   })
   const books = await client.book.findMany({ where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true, workId: true, contents: { where: { work: { userId } }, select: { workId: true } }, author: { select: { name: true } } } })
   const decisions = await client.collectionImport.findUnique({ where: { userId_dataset: { userId, dataset: OWNERSHIP_DATASET } }, select: { report: true } })
-  return reconcileCatalog(catalog.map(series => ({ ...series, entries: series.entries.map(entry => ({ ...entry, position: entry.position?.toString() ?? null })) })), books, decisions ? readOwnershipExclusions(decisions.report) : []).map(series => ({ ...series, entries: orderedSeriesEntries(series.entries) }))
+  const managementRow = await client.collectionImport.findUnique({ where: { userId_dataset: { userId, dataset: MANAGEMENT_DATASET } }, select: { report: true } })
+  const state = readManagementState(managementRow?.report)
+  const aliases = state.groups.flatMap(group => group.workIds)
+  const aliasWorks = aliases.length ? await client.work.findMany({ where: { userId, id: { in: aliases } }, include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } } } } } }) : []
+  const prepared = applyManagementState(catalog.map(series => ({ ...series, entries: series.entries.map(entry => ({ ...entry, position: entry.position?.toString() ?? null })) })), aliasWorks, state)
+  return reconcileCatalog(prepared, books, decisions ? readOwnershipExclusions(decisions.report) : []).map(series => ({ ...series, entries: orderedSeriesEntries(series.entries) }))
 }
 
 export async function getSeries(userId: string, id: string) {

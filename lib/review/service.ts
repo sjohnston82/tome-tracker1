@@ -1,3 +1,4 @@
+import { MANAGEMENT_DATASET } from '@/lib/series/management-state';
 import { Prisma, type ReadingStatus, type SeriesEntryType } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { retryTransaction } from '@/lib/transaction-retry';
@@ -10,7 +11,7 @@ export async function loadReviewSnapshot(tx: Client, userId: string): Promise<Re
     tx.book.findMany({ where: { userId }, select: { id: true, title: true, author: { select: { name: true } }, publicationYear: true, readingStatus: true, coverUrl: true, coverLocked: true, isbn13: true, isbn10: true, importKey: true, updatedAt: true, workId: true, contents: { where: { work: { userId } }, select: { workId: true } }, readingSessions: { where: { finishedAt: null }, select: { id: true } } } }),
     tx.work.findMany({ where: { userId }, select: { id: true, title: true, authorName: true, publicationYear: true, importKey: true, updatedAt: true } }),
     tx.seriesEntry.findMany({ where: { series: { userId }, work: { userId } }, select: { id: true, workId: true, position: true, entryType: true, isConfirmed: true, series: { select: { id: true, name: true } } } }),
-    tx.collectionImport.findMany({ where: { userId, dataset: { in: ['tome-collection', PREVIEW_DATASET] } }, select: { id: true, dataset: true, manifest: true, report: true, updatedAt: true } }),
+    tx.collectionImport.findMany({ where: { userId, dataset: { in: ['tome-collection', PREVIEW_DATASET, MANAGEMENT_DATASET] } }, select: { id: true, dataset: true, manifest: true, report: true, updatedAt: true } }),
   ]);
   return { books: books.map(book => ({ ...book, updatedAt: book.updatedAt.toISOString() })), works: works.map(work => ({ ...work, updatedAt: work.updatedAt.toISOString() })), entries: entries.map(entry => ({ ...entry, position: entry.position?.toString() ?? null })), imports: imports.map(row => ({ ...row, updatedAt: row.updatedAt.toISOString() })) };
 }

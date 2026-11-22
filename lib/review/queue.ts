@@ -1,3 +1,4 @@
+import { MANAGEMENT_DATASET, readManagementState, seriesNameKey } from '@/lib/series/management-state';
 import { createHash } from 'node:crypto';
 import { collectionManifestSchema } from '@/lib/import/collection-validation';
 import { planCollectionImport, type ImportIssue } from '@/lib/import/collection-plan';
@@ -17,7 +18,10 @@ export function buildReviewQueue(snapshot: ReviewSnapshot): Omit<ReviewQueue, 'i
   const items: BuiltItem[] = [];
   const books = new Map(snapshot.books.map(book => [book.id, book]));
   const works = new Map(snapshot.works.map(work => [work.id, work]));
+  const management = readManagementState(snapshot.imports.find(row => row.dataset === MANAGEMENT_DATASET)?.report);
+  const sourceEntry = (workId: string, name: string) => { const target = management.redirects.find(item => seriesNameKey(item.name) === seriesNameKey(name))?.targetId; const group = management.groups.find(item => item.seriesId === target && item.mode === 'combined' && item.workIds.includes(workId)); return snapshot.entries.find(entry => entry.workId === (group?.primaryWorkId ?? workId) && (target ? entry.series.id === target : entry.series.name === name)); };
   const workOwned = new Set(snapshot.books.flatMap(book => [book.workId, ...book.contents.map(content => content.workId)].filter((id): id is string => !!id)));
+  for (const group of management.groups) if (group.mode === 'combined' && group.workIds.some(id => workOwned.has(id))) for (const id of group.workIds) workOwned.add(id);
   const preview = snapshot.imports.find(row => row.dataset === PREVIEW_DATASET && jsonObject(row.report).applied !== true);
   const record = preview ?? snapshot.imports.find(row => row.dataset === 'tome-collection');
   const decisions = readReviewDecisions(record?.report);
@@ -49,7 +53,7 @@ export function buildReviewQueue(snapshot: ReviewSnapshot): Omit<ReviewQueue, 'i
       const issues: Issue[] = [...plan.issues];
       for (const source of sourceEntries) {
         const work = snapshot.works.find(work => work.importKey === source.sourceKey);
-        const entry = work && snapshot.entries.find(entry => entry.workId === work.id && entry.series.name === source.seriesName);
+        const entry = work && sourceEntry(work.id, source.seriesName);
         if (entry && ((entry.position === null ? source.position !== null : source.position === null || Number(entry.position) !== source.position) || entry.entryType !== source.entryType)) issues.push({ code: 'ORDER_CONFLICT', sourceKey: source.sourceKey, seriesName: source.seriesName, message: 'The library and checklist record different series ordering or entry types.' });
       }
       const seen = new Set<string>();
@@ -62,7 +66,7 @@ export function buildReviewQueue(snapshot: ReviewSnapshot): Omit<ReviewQueue, 'i
         const workAction = plan.workActions.find(action => action.source.sourceKey === issue.sourceKey);
         const book = bookAction?.existingId ? books.get(bookAction.existingId) : undefined;
         const work = workAction?.existingId ? works.get(workAction.existingId) : undefined;
-        const entry = work && issue.seriesName ? snapshot.entries.find(entry => entry.workId === work.id && entry.series.name === issue.seriesName) : undefined;
+        const entry = work && issue.seriesName ? sourceEntry(work.id, issue.seriesName) : undefined;
         const source = sourceBook ?? sourceWork;
         const candidates = (issue.candidateIds ?? (issue.code === 'READING_CONFLICT' && issue.blocking && book && !book.importKey ? [book.id] : [])).flatMap(id => {
           const book = books.get(id), work = works.get(id);

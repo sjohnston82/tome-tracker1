@@ -1,3 +1,4 @@
+import { MANAGEMENT_DATASET, remapManagementState } from '@/lib/series/management-state';
 import { OWNERSHIP_DATASET, remapOwnershipReport } from '@/lib/series/ownership-decisions';
 import { retryTransaction } from '@/lib/transaction-retry';
 import { prisma } from '@/lib/db';
@@ -32,7 +33,7 @@ export async function restoreBackup(userId: string, input: unknown) {
     await tx.bookContent.createMany({ data: backup.contents.map(c => ({ bookId: books.get(c.bookId)!, workId: works.get(c.workId)! })) });
     await tx.readingSession.createMany({ data: backup.sessions.map(s => ({ ...s, id: sessions.get(s.id)!, bookId: books.get(s.bookId)! })) });
     await tx.readingLog.createMany({ data: backup.logs.map(l => ({ ...l, id: randomUUID(), sessionId: sessions.get(l.sessionId)! })) });
-    await tx.collectionImport.createMany({ data: backup.imports.map(i => ({ ...i, id: randomUUID(), userId, manifest: i.manifest === null ? Prisma.JsonNull : i.manifest, report: i.dataset === OWNERSHIP_DATASET ? remapOwnershipReport(i.report, works, books) : i.report === null ? Prisma.JsonNull : i.report })) });
+    await tx.collectionImport.createMany({ data: backup.imports.map(i => ({ ...i, id: randomUUID(), userId, manifest: i.manifest === null ? Prisma.JsonNull : i.manifest, report: i.dataset === MANAGEMENT_DATASET ? remapManagementState(i.report, series, works) : i.dataset === OWNERSHIP_DATASET ? remapOwnershipReport(i.report, works, books) : i.report === null ? Prisma.JsonNull : i.report })) });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 60000 }));
   return { books: backup.books.length, logs: backup.logs.length };
 }
