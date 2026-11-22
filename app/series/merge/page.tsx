@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useCacheOwner } from '@/lib/offline/owner';
+import type { ShelfMode } from '@/lib/series/checklist';
 import type { MergePreview, MergeResolution } from '@/lib/series/merge-types';
 type Option = { id: string; name: string; _count: { entries: number } };
 export default function SeriesMergePage() {
@@ -10,6 +11,7 @@ export default function SeriesMergePage() {
   const [loadedOwner, setLoadedOwner] = useState(''), [options, setOptions] = useState<Option[]>([]), [load, setLoad] = useState(0);
   const [targetId, setTargetId] = useState(''), [sourceId, setSourceId] = useState(''), [name, setName] = useState('');
   const [preview, setPreview] = useState<MergePreview | null>(null), [resolutions, setResolutions] = useState<Record<string, MergeResolution>>({});
+  const [visibilityChoice, setVisibilityChoice] = useState<ShelfMode | ''>('automatic');
   const [description, setDescription] = useState(''), [descriptionChoice, setDescriptionChoice] = useState(''), [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [noticeOwner, setNoticeOwner] = useState(''), [online, setOnline] = useState(true);
   useEffect(() => {
@@ -28,16 +30,16 @@ export default function SeriesMergePage() {
     if (saving.current || !online || loadedOwner !== String(owner)) return;
     saving.current = true; setBusy(true); setError(''); const token = epoch.current;
     try {
-      const body = apply && preview ? { mode: 'apply', targetId: preview.targetId, sourceId: preview.sourceId, name: preview.name, version: preview.version, description: description || null, resolutions: Object.values(resolutions) } : { mode: 'preview', targetId, sourceId, name };
+      const body = apply && preview ? { mode: 'apply', targetId: preview.targetId, sourceId: preview.sourceId, name: preview.name, version: preview.version, visibility: visibilityChoice, description: description || null, resolutions: Object.values(resolutions) } : { mode: 'preview', targetId, sourceId, name };
       const response = await fetch('/api/series/merge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await response.json(); if (!response.ok) throw new Error(data.message ?? 'The merge could not be verified. Refresh before trying again.');
       if (epoch.current !== token) return;
       if (apply) { setPreview(null); setNoticeOwner(String(owner)); setNotice(`Merged into ${data.merged.name}. Physical books and reading history were preserved.`); setLoad(value => value + 1); }
-      else { setPreview(data.preview); setResolutions({}); setConfirmed(false); setDescription(data.preview.targetDescription ?? data.preview.sourceDescription ?? ''); setDescriptionChoice(data.preview.targetDescription && data.preview.sourceDescription && data.preview.targetDescription !== data.preview.sourceDescription ? '' : 'automatic'); }
+      else { setPreview(data.preview); setVisibilityChoice((data.preview.targetVisibility ?? 'automatic') === (data.preview.sourceVisibility ?? 'automatic') ? (data.preview.targetVisibility ?? 'automatic') : ''); setResolutions({}); setConfirmed(false); setDescription(data.preview.targetDescription ?? data.preview.sourceDescription ?? ''); setDescriptionChoice(data.preview.targetDescription && data.preview.sourceDescription && data.preview.targetDescription !== data.preview.sourceDescription ? '' : 'automatic'); }
     } catch (e) { if (epoch.current === token) { setPreview(null); setConfirmed(false); setError(e instanceof Error ? e.message : 'The merge could not be verified. Refresh before trying again.'); } }
     finally { if (epoch.current === token) { saving.current = false; setBusy(false); } }
   };
-  const ready = !!preview && preview.groups.every(group => !group.needsResolution || resolutions[group.id]) && !!descriptionChoice && confirmed;
+  const ready = !!preview && preview.groups.every(group => !group.needsResolution || resolutions[group.id]) && !!descriptionChoice && !!visibilityChoice && confirmed;
   return <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
     <Link href="/series" className="text-blue-600 underline">Back to Series</Link>
     <div><h1 className="text-3xl font-bold">Merge duplicate series</h1><p className="text-gray-500 mt-2">Compare the saved checklists, choose a canonical name, and resolve duplicates before saving one series. Original work records and physical-copy links are preserved.</p></div>
@@ -61,6 +63,8 @@ export default function SeriesMergePage() {
       </fieldset>)}
       {preview.targetDescription && preview.sourceDescription && preview.targetDescription !== preview.sourceDescription && <fieldset className="border rounded-xl p-4 space-y-2"><legend>Descriptions differ</legend>{[['target', preview.targetName, preview.targetDescription], ['source', preview.sourceName, preview.sourceDescription]].map(([key, label, value]) => <label key={key} className="block"><input type="radio" name="description-choice" checked={descriptionChoice === key} disabled={busy} onChange={() => { setDescriptionChoice(key); setDescription(value); setConfirmed(false); }} /> Keep description from {label}: {value}</label>)}</fieldset>}
       <label className="block text-sm">Retained description<textarea maxLength={4000} className="block w-full border rounded p-2 mt-1 bg-white dark:bg-gray-900" value={description} disabled={busy} onChange={event => { setDescription(event.target.value); setDescriptionChoice('custom'); setConfirmed(false); }} /></label>
+      <label className="block text-sm">Retained shelf preference<select className="block border rounded p-2 mt-1 bg-white dark:bg-gray-900" value={visibilityChoice} disabled={busy} onChange={event => { setVisibilityChoice(event.target.value as ShelfMode | ''); setConfirmed(false); }}><option value="">Choose a shelf preference…</option><option value="automatic">Automatic</option><option value="following">Following</option><option value="hidden">Hidden</option></select></label>
+      {preview.targetVisibility !== preview.sourceVisibility && <p className="text-sm text-amber-700">Shelf preferences differ: {preview.targetName} is {preview.targetVisibility}; {preview.sourceName} is {preview.sourceVisibility}. Choose the retained preference.</p>}
       <label className="flex items-start gap-2"><input type="checkbox" checked={confirmed} disabled={busy} onChange={event => setConfirmed(event.target.checked)} /><span>I reviewed this preview and want to replace these two series checklists with one. My physical books and reading history stay intact.</span></label>
       <Button disabled={!ready || busy || !online} onClick={() => void run(true)}>{busy ? 'Merging…' : 'Confirm series merge'}</Button>
     </section>}

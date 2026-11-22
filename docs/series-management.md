@@ -9,3 +9,15 @@ The server uses account-scoped repeatable-read previews, a snapshot hash, and a 
 Versioned series management data uses the `tome:series-management` namespace. It preserves old series-name redirects and per-series work groups. Original collection imports follow redirects and map checklist memberships to the retained work without recreating duplicate series or discarded positions. Rejected ownership matches remain respected. Metadata review follows redirects when comparing source ordering with the retained checklist. Backup validation checks this data and restore remaps series/work IDs. No migration is required.
 
 Validation includes explicit conflict and keep-separate UI controls, account boundaries, stale previews, malformed choices, preservation of physical records and manual metadata, competing merges, backup remapping and reimport behavior. Database/HTTP tests use isolated databases and generated accounts, never personal or production data. A merge cannot be undone in place; export a backup before a cleanup if you want the original series arrangement available for a full restore into an empty library.
+
+## Follow and hide
+
+Each Series shelf has a Shelf control:
+
+- **Automatic** shows it when at least one recorded work is owned (or when browsing unowned series).
+- **Following** keeps it on the default shelves even after the last owned copy is removed, without creating physical copies.
+- **Hidden** removes it from default shelves and ordinary searches. **Show hidden series** reveals it so the choice can be reversed, including hidden series with no owned books.
+
+Preferences are account data, not browser-only settings. They persist across devices, reimports and backup restores. Known display aliases are updated together. A hidden alias takes precedence when restoring inconsistent legacy preferences; an explicit new choice updates the complete displayed group. Saved revisions detect stale requests and automatic-following-automatic changes, and competing changes have one winner. These controls do not change ownership, work metadata or reading history. Offline writes are disabled.
+
+A merge preview shows the two shelf preferences. If they differ, the retained preference requires an explicit choice before the merge can be saved. Successful merges retain the chosen preference on the canonical series and remove the obsolete source preference.

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { checklistStats, ownedEditions, type ChecklistEntry, type ChecklistSeries } from '@/lib/series/checklist'
 import { Button } from '@/components/ui/button'
+import { isSeriesVisible } from '@/lib/series/shelf-preference'
 import { OwnershipReview } from '@/components/series/ownership-review'
 import { SeriesShelves } from '@/components/series/series-shelves'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,7 @@ export default function SeriesPage() {
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [showUnowned, setShowUnowned] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -67,8 +69,8 @@ export default function SeriesPage() {
     try { await operation(); await reload(); setNotice(message) } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save changes') } finally { setBusy(false) }
   }
   const current = series.find(s => s.id === selected)
-  const visibleSeries = series.filter(s => (showUnowned || s.id === selected || checklistStats(s).owned > 0) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.entries.some(e => e.work.title.toLowerCase().includes(search.toLowerCase()) || e.work.authorName.toLowerCase().includes(search.toLowerCase()))))
-  const ownershipSuggestions = [...new Map(series.flatMap(item => item.entries.flatMap(entry => (entry.ownershipLinks ?? []).filter(link => link.source === 'match').map(link => [`${entry.work.id}:${link.bookId}`, { seriesId: item.id, workId: entry.work.id }] as const)))).values()]
+  const visibleSeries = series.filter(s => isSeriesVisible(s, { showUnowned, showHidden, selected }) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.entries.some(e => e.work.title.toLowerCase().includes(search.toLowerCase()) || e.work.authorName.toLowerCase().includes(search.toLowerCase()))))
+  const ownershipSuggestions = [...new Map(series.filter(item => item.visibility !== 'hidden' || showHidden).flatMap(item => item.entries.flatMap(entry => (entry.ownershipLinks ?? []).filter(link => link.source === 'match').map(link => [`${entry.work.id}:${link.bookId}`, { seriesId: item.id, workId: entry.work.id }] as const)))).values()]
   const stats = current ? checklistStats(current) : null
   const entries = current?.entries.filter(entry => {
     const editions = ownedEditions(entry)
@@ -118,7 +120,9 @@ export default function SeriesPage() {
       <div className="space-y-4">
         <Input aria-label="Search series, authors or titles" placeholder="Search series, authors or titles" value={search} onChange={e => setSearch(e.target.value)} />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showUnowned} onChange={event => setShowUnowned(event.target.checked)} />Show series with no owned books</label>
-        <SeriesShelves series={visibleSeries} selected={selected} onSelect={id => { setSelected(selected === id ? null : id); setFilter('all'); setEditing(null) }} details={s => <>{selected === s.id &&       <section id={`series-details-${s.id}`} aria-label={`${s.name} checklist`} className="min-w-0 py-4">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showHidden} onChange={event => setShowHidden(event.target.checked)} />Show hidden series</label>
+        <p className="text-xs text-gray-500">Following keeps a series on your shelves even with no owned copies. Hidden series stay out of the default view; Automatic shows series you own.</p>
+        <SeriesShelves disabled={busy || !online} onPreference={(item, mode) => { void perform(async () => { await request(`/api/series/${item.id}/visibility`, 'PATCH', { mode, version: item.visibilityVersion }); if (mode === 'hidden') { setSelected(null); setReviewWorkId(null) } }, mode === 'hidden' ? 'Series hidden. Use Show hidden series to restore it.' : mode === 'following' ? 'Following this series, even when no copies are owned.' : 'Series returned to automatic shelves.') }} series={visibleSeries} selected={selected} onSelect={id => { setSelected(selected === id ? null : id); setFilter('all'); setEditing(null) }} details={s => <>{selected === s.id &&       <section id={`series-details-${s.id}`} aria-label={`${s.name} checklist`} className="min-w-0 py-4">
         {current && stats ? <>
           <div className="border rounded-2xl p-6 mb-5 bg-white dark:bg-gray-900">
             <h2 className="text-2xl font-bold">{current.name}</h2>{current.description && <p className="mt-2 text-gray-600 dark:text-gray-400">{current.description}</p>}

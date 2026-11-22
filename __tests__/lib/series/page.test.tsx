@@ -83,3 +83,24 @@ it('hides catalog-only series until requested', async () => {
   fireEvent.click(screen.getByLabelText('Show series with no owned books'))
   expect(screen.getByRole('article', { name: 'Malazan short fiction shelf' })).toBeDefined()
 })
+
+it('shows followed missing series and exposes hidden shelves only when explicitly requested', async () => {
+  const followed = { ...data, id: 'followed', name: 'Following Series', visibility: 'following', entries: [data.entries[1]] }
+  const hidden = { ...data, id: 'hidden', name: 'Hidden Owned Series', visibility: 'hidden' }
+  fetcher.mockImplementation(async (url: string) => ({ ok: true, status: 200, json: async () => url === '/api/series' ? { series: [followed, hidden] } : { import: null } }))
+  render(<SeriesPage />)
+  await screen.findByRole('article', { name: 'Following Series shelf' })
+  expect(screen.queryByRole('article', { name: 'Hidden Owned Series shelf' })).toBeNull()
+  fireEvent.click(screen.getByLabelText('Show series with no owned books'))
+  expect(screen.queryByRole('article', { name: 'Hidden Owned Series shelf' })).toBeNull()
+  fireEvent.click(screen.getByLabelText('Show hidden series'))
+  expect(screen.getByRole('article', { name: 'Hidden Owned Series shelf' })).toBeDefined()
+})
+it('saves a shelf choice with its version and refreshes the visible shelves', async () => {
+  const original = { ...data, visibility: 'automatic', visibilityVersion: 'a'.repeat(64) }
+  fetcher.mockImplementation(async (url: string, options?: { method?: string }) => ({ ok: true, status: 200, json: async () => url === '/api/series' ? { series: [original] } : { import: null } }))
+  render(<SeriesPage />)
+  const control = await screen.findByLabelText('Shelf preference for A Series')
+  fireEvent.change(control, { target: { value: 'following' } })
+  await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/series/series-one/visibility', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ mode: 'following', version: original.visibilityVersion }) })))
+})

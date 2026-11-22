@@ -1,14 +1,14 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { OWNERSHIP_DATASET } from './ownership-decisions'
 import { retryTransaction } from '@/lib/transaction-retry'
 import { catalogIdentity } from './catalog-view'
-import { MANAGEMENT_DATASET, managementSchema, readManagementState, seriesNameKey } from './management-state'
+import { MANAGEMENT_DATASET, managementSchema, readManagementState, seriesNameKey, shelfModeSchema } from './management-state'
 import type { MergePreview, MergeChoice, MergeResolution } from './merge-types'
 const selection = { targetId: z.string().uuid(), sourceId: z.string().uuid(), name: z.string().trim().min(1).max(250) }
-export const mergeInput = z.discriminatedUnion('mode', [z.object({ mode: z.literal('preview'), ...selection }).strict(), z.object({ mode: z.literal('apply'), ...selection, version: z.string().regex(/^[a-f0-9]{64}$/), description: z.string().max(4000).nullable(), resolutions: z.array(z.object({ groupId: z.string().regex(/^[a-f0-9]{64}$/), mode: z.enum(['combined', 'separate']), entryId: z.string().uuid(), workId: z.string().uuid() }).strict()).max(2000) }).strict()])
+export const mergeInput = z.discriminatedUnion('mode', [z.object({ mode: z.literal('preview'), ...selection }).strict(), z.object({ mode: z.literal('apply'), ...selection, version: z.string().regex(/^[a-f0-9]{64}$/), description: z.string().max(4000).nullable(), visibility: shelfModeSchema.optional(), resolutions: z.array(z.object({ groupId: z.string().regex(/^[a-f0-9]{64}$/), mode: z.enum(['combined', 'separate']), entryId: z.string().uuid(), workId: z.string().uuid() }).strict()).max(2000) }).strict()])
 export class MergeError extends Error { constructor(public status: number, message: string) { super(message) } }
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 async function load(client: Prisma.TransactionClient, userId: string, input: { targetId: string; sourceId: string; name: string }) {
@@ -50,7 +50,7 @@ async function load(client: Prisma.TransactionClient, userId: string, input: { t
     }
   }
   const selected = { targetId: input.targetId, sourceId: input.sourceId, name: input.name }
-  const result: MergePreview = { ...selected, version: digest({ input: selected, records, works, books, state, ownership }), targetName: target.name, sourceName: source.name, targetDescription: target.description, sourceDescription: source.description, groups: [...groups.entries()].map(([key, choices]) => ({ id: digest(key), choices, needsResolution: choices.length > 1 && (new Set(choices.map(choice => choice.workId)).size > 1 || new Set(choices.map(choice => `${choice.position}:${choice.entryType}`)).size > 1), canSeparate: choices.length > 1 && new Set(choices.map(choice => choice.workId)).size === choices.length })) }
+  const result: MergePreview = { ...selected, version: digest({ input: selected, records, works, books, state, ownership }), targetName: target.name, sourceName: source.name, targetDescription: target.description, sourceDescription: source.description, targetVisibility: state.visibility.find(item => item.seriesId === target.id)?.mode ?? 'automatic', sourceVisibility: state.visibility.find(item => item.seriesId === source.id)?.mode ?? 'automatic', groups: [...groups.entries()].map(([key, choices]) => ({ id: digest(key), choices, needsResolution: choices.length > 1 && (new Set(choices.map(choice => choice.workId)).size > 1 || new Set(choices.map(choice => `${choice.position}:${choice.entryType}`)).size > 1), canSeparate: choices.length > 1 && new Set(choices.map(choice => choice.workId)).size === choices.length })) }
   return { result, state, target, source }
 }
 export async function seriesMergeOptions(userId: string) {
@@ -63,6 +63,7 @@ export async function applySeriesMerge(userId: string, input: Extract<z.infer<ty
   return retryTransaction(() => prisma.$transaction(async tx => {
     const { result: preview, state, target, source } = await load(tx, userId, { targetId: input.targetId, sourceId: input.sourceId, name: input.name })
     if (preview.version !== input.version) throw new MergeError(409, 'The catalog changed. Create a fresh preview before merging.')
+    if (preview.targetVisibility !== preview.sourceVisibility && input.visibility === undefined) throw new MergeError(400, 'Choose the retained shelf preference before merging.')
     const resolutions = new Map(input.resolutions.map(item => [item.groupId, item]))
     if (resolutions.size !== input.resolutions.length || input.resolutions.some(item => !preview.groups.some(group => group.id === item.groupId))) throw new MergeError(400, 'Invalid or duplicate conflict choices.')
     const groups = state.groups.filter(group => group.seriesId !== target.id && group.seriesId !== source.id)
@@ -81,7 +82,7 @@ export async function applySeriesMerge(userId: string, input: Extract<z.infer<ty
     }
     const redirects = new Map(state.redirects.map(item => [seriesNameKey(item.name), { ...item, targetId: item.targetId === source.id ? target.id : item.targetId }]))
     for (const name of [target.name, source.name, input.name]) redirects.set(seriesNameKey(name), { name, targetId: target.id })
-    const next = managementSchema.parse({ ...state, redirects: [...redirects.values()], groups })
+    const next = managementSchema.parse({ ...state, redirects: [...redirects.values()], groups, visibility: [...state.visibility.filter(item => item.seriesId !== target.id && item.seriesId !== source.id), { seriesId: target.id, mode: input.visibility ?? preview.targetVisibility, revision: randomUUID() }] })
     await tx.seriesEntry.deleteMany({ where: { seriesId: { in: [target.id, source.id] }, series: { userId }, work: { userId } } })
     await tx.seriesEntry.createMany({ data: entries })
     await tx.series.delete({ where: { id: source.id, userId } })

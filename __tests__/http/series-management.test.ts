@@ -57,4 +57,23 @@ describe('signed series merge HTTP flow', () => {
     expect(await prisma.series.count({ where: { userId: owner } })).toBe(2)
     expect(await prisma.seriesEntry.count({ where: { series: { userId: owner } } })).toBe(2)
   })
+  it('persists follow and hide preferences with authentication and version checks', async () => {
+    const f = await fixture(), path = `/api/series/${f.target.id}/visibility`
+    const catalog = (await (await call('/api/series')).json()).series
+    const original = catalog.find((item: { id: string }) => item.id === f.target.id)
+    const patch = (body: unknown, session = cookie) => fetch(`http://localhost:3000${path}`, { method: 'PATCH', headers: { Cookie: session, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    expect((await patch({ mode: 'following', version: original.visibilityVersion }, '')).status).toBe(401)
+    expect((await patch({ mode: 'following', version: original.visibilityVersion }, otherCookie)).status).toBe(404)
+    const follow = await patch({ mode: 'following', version: original.visibilityVersion })
+    expect(follow.status).toBe(200); expect(follow.headers.get('cache-control')).toBe('private, no-store')
+    let current = (await (await call('/api/series')).json()).series.find((item: { id: string }) => item.id === f.target.id)
+    expect(current.visibility).toBe('following')
+    expect((await patch({ mode: 'hidden', version: original.visibilityVersion })).status).toBe(409)
+    expect((await patch({ mode: 'hidden', version: current.visibilityVersion })).status).toBe(200)
+    current = (await (await call('/api/series')).json()).series.find((item: { id: string }) => item.id === f.target.id)
+    expect(current.visibility).toBe('hidden')
+    expect(await prisma.book.findUniqueOrThrow({ where: { id: f.book.id } })).toMatchObject({ title: f.book.title, readingStatus: 'READING', coverLocked: true })
+    expect((await patch({ mode: 'automatic', version: current.visibilityVersion })).status).toBe(200)
+  })
+
 })

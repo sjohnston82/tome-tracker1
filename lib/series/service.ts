@@ -1,3 +1,4 @@
+import { decorateVisibility } from './visibility-state'
 import { MANAGEMENT_DATASET, readManagementState, applyManagementState } from './management-state'
 import type { Prisma } from '@prisma/client'
 import { OWNERSHIP_DATASET, readOwnershipExclusions } from './ownership-decisions'
@@ -31,7 +32,7 @@ export async function listSeries(userId: string, client: Prisma.TransactionClien
   const aliases = state.groups.flatMap(group => group.workIds)
   const aliasWorks = aliases.length ? await client.work.findMany({ where: { userId, id: { in: aliases } }, include: { editions: { where: { userId }, select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } }, containedIn: { where: { book: { userId } }, include: { book: { select: { id: true, title: true, readingStatus: true, isbn13: true, coverUrl: true, coverLocked: true } } } } } }) : []
   const prepared = applyManagementState(catalog.map(series => ({ ...series, entries: series.entries.map(entry => ({ ...entry, position: entry.position?.toString() ?? null })) })), aliasWorks, state)
-  return reconcileCatalog(prepared, books, decisions ? readOwnershipExclusions(decisions.report) : []).map(series => ({ ...series, entries: orderedSeriesEntries(series.entries) }))
+  return decorateVisibility(reconcileCatalog(prepared, books, decisions ? readOwnershipExclusions(decisions.report) : []).map(series => ({ ...series, entries: orderedSeriesEntries(series.entries) })), state)
 }
 
 export async function getSeries(userId: string, id: string) {
