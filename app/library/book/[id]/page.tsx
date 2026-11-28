@@ -5,12 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import { useBook } from "@/lib/hooks/useBook";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CoverPicker } from '@/components/library/cover-picker';
+import { BookCover } from '@/components/library/book-cover';
+import { ReadingTracker } from '@/components/library/reading-tracker';
 
 export default function BookDetailPage() {
   const params = useParams();
   const bookId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const router = useRouter();
-  const { book, loading, error, updateBook, deleteBook } = useBook(bookId ?? null);
+  const { book, loading, error, updateBook, deleteBook, refresh } = useBook(bookId ?? null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -81,17 +84,7 @@ export default function BookDetailPage() {
       </button>
       <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
         <div className="flex gap-6 mb-6">
-          {book.coverUrl ? (
-            <img
-              src={book.coverUrl}
-              alt={book.title}
-              className="w-32 h-48 object-cover rounded"
-            />
-          ) : (
-            <div className="w-32 h-48 bg-gray-200 rounded flex items-center justify-center text-4xl">
-              📖
-            </div>
-          )}
+          <BookCover url={book.coverUrl} title={book.title} retry />
           <div>
             {editing ? (
               <div className="space-y-3">
@@ -126,6 +119,20 @@ export default function BookDetailPage() {
             )}
           </div>
         </div>
+        <CoverPicker book={book} onSaved={refresh} />
+        <div className="border rounded-xl p-4 mb-5 space-y-3"><h2 className="font-semibold text-lg">Reading log</h2><ReadingTracker bookId={book.id} status={book.readingStatus ?? 'UNKNOWN'} onChanged={refresh} /></div>
+        <label className="block text-sm mb-5">Reading status
+          <select aria-label="Reading status" className="block border rounded-lg px-3 py-2 mt-2 bg-white dark:bg-gray-900" value={book.readingStatus ?? 'UNKNOWN'} disabled={saving} onChange={async event => {
+            setSaving(true);
+            try {
+              const result = await updateBook({ readingStatus: event.target.value });
+              if (!result.success) window.alert('Unable to update reading status. Please try again.');
+            } catch { window.alert('Unable to update reading status. Please try again.'); }
+            finally { setSaving(false); }
+          }}>
+            <option value="UNKNOWN">Unknown</option><option value="UNREAD">Unread</option><option value="READING">Currently reading</option><option value="READ">Read</option>
+          </select>
+        </label>
         {editing ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

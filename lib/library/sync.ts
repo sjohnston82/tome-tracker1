@@ -21,8 +21,10 @@ export interface BookSummary {
   publisher: string | null
   publicationYear: number | null
   coverUrl: string | null
+  coverLocked: boolean
   seriesName: string | null
   seriesNumber: number | null
+  readingStatus: 'UNKNOWN' | 'UNREAD' | 'READING' | 'READ'
   tags: string[]
   genres: string[]
   source: string
@@ -63,8 +65,10 @@ export async function getLibrarySnapshot(userId: string): Promise<LibrarySnapsho
         publisher: book.publisher,
         publicationYear: book.publicationYear,
         coverUrl: book.coverUrl,
+        coverLocked: book.coverLocked,
         seriesName: book.seriesName,
         seriesNumber: book.seriesNumber,
+        readingStatus: book.readingStatus,
         tags: book.tags,
         genres: book.genres,
         source: book.source,

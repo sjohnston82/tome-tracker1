@@ -50,6 +50,7 @@ A Progressive Web App for scanning and managing your personal book library.
    DATABASE_URL=postgresql://...  # From Neon dashboard
    JWT_SECRET=your-secure-secret-min-32-chars
    RESEND_API_KEY=re_...          # From Resend dashboard
+   RESEND_FROM_EMAIL=noreply@your-verified-domain.example
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    ```
 
@@ -78,8 +79,11 @@ A Progressive Web App for scanning and managing your personal book library.
    - `DATABASE_URL`
    - `JWT_SECRET`
    - `RESEND_API_KEY`
+   - `RESEND_FROM_EMAIL` (sender address on a domain verified in Resend)
    - `NEXT_PUBLIC_APP_URL` (your Vercel URL)
 4. Deploy!
+
+Password-reset setup and verification: [Email delivery](docs/password-reset-email.md).
 
 ## Testing
 

@@ -9,9 +9,10 @@ const withPWAConfig = withPWA({
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/covers\.openlibrary\.org\/.*/i,
-      handler: "CacheFirst",
+      handler: "NetworkFirst",
       options: {
         cacheName: "cover-images",
+        networkTimeoutSeconds: 5,
         expiration: {
           maxEntries: 500,
           maxAgeSeconds: 60 * 60 * 24 * 30,
@@ -20,23 +21,13 @@ const withPWAConfig = withPWA({
     },
     {
       urlPattern: /^https:\/\/books\.google\.com\/books\/content.*/i,
-      handler: "CacheFirst",
+      handler: "NetworkFirst",
       options: {
         cacheName: "google-covers",
+        networkTimeoutSeconds: 5,
         expiration: {
           maxEntries: 500,
           maxAgeSeconds: 60 * 60 * 24 * 30,
-        },
-      },
-    },
-    {
-      urlPattern: /\/api\/library\/sync/,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "library-sync",
-        networkTimeoutSeconds: 10,
-        expiration: {
-          maxAgeSeconds: 60 * 60 * 24,
         },
       },
     },

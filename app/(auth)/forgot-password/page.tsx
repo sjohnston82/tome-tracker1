@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
         )}
         {success && (
           <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm">
-            If an account exists, a reset email has been sent.
+            If an account exists, a reset email has been requested. Check your inbox and spam folder.
           </div>
         )}
         <Input

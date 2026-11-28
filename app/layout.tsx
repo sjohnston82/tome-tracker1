@@ -4,6 +4,10 @@ import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { OfflineBanner } from "@/components/offline/offline-banner";
 import { getSession } from "@/lib/auth/session";
+import { ThemeProvider } from '@/lib/hooks/useTheme';
+import { THEME_BOOTSTRAP } from '@/lib/theme';
+import { CacheOwnerProvider } from '@/lib/offline/owner';
+import { PreferencesProvider } from "@/lib/preferences";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -22,8 +26,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#3b82f6",
   viewportFit: "cover",
 };
@@ -37,17 +39,21 @@ export default async function RootLayout({
   const user = session ? { email: session.email, role: session.role } : null;
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script id="theme-preference" dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className={inter.className}>
+        <ThemeProvider><CacheOwnerProvider userId={session?.userId ?? null}>
+        <PreferencesProvider>
         <OfflineBanner />
         <Header user={user} />
-        <main className="min-h-screen pb-20 sm:pb-8">{children}</main>
+        <main className="min-h-screen pt-4 pb-20 sm:pb-8">{children}</main>
         {user && <MobileNav />}
+        </PreferencesProvider></CacheOwnerProvider></ThemeProvider>
       </body>
     </html>
   );

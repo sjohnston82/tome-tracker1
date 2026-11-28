@@ -1,30 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
+import { sortAuthorBooks } from '@/lib/books/book-order';
 import { cn } from "@/lib/utils";
+import { BookCover } from '@/components/library/book-cover';
 
 export function AuthorCard({
   author,
-  groupBySeries,
+  groupBySeries, defaultExpanded = false, bookSort = "series",
 }: {
   author: any;
-  groupBySeries: boolean;
+  groupBySeries: boolean; defaultExpanded?: boolean; bookSort?: "title" | "series" | "year";
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [opened, setOpened] = useState(defaultExpanded);
+  const panelId = useId();
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => { setOpened(true); setExpanded(!expanded); }}
+        aria-expanded={expanded}
+        aria-controls={panelId}
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50"
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-            👤
-          </div>
           <div className="text-left">
-            <h3 className="font-medium">{author.name}</h3>
+            <h3 className="text-lg sm:text-xl font-semibold">{author.name}</h3>
             <p className="text-sm text-gray-500">{author.books.length} books</p>
           </div>
         </div>
@@ -34,30 +37,20 @@ export function AuthorCard({
           ▼
         </span>
       </button>
-      {expanded && (
-        <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 space-y-2 mt-3">
-          {author.books.map((book: any) => (
+      {opened && (
+        <div id={panelId} hidden={!expanded} className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 space-y-2 mt-3">
+          {sortAuthorBooks(author.books, bookSort).map((book: any) => (
             <Link
               key={book.id}
               href={`/library/book/${book.id}`}
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50"
             >
-              {book.coverUrl ? (
-                <img
-                  src={book.coverUrl}
-                  alt={book.title}
-                  className="w-10 h-14 object-cover rounded"
-                />
-              ) : (
-                <div className="w-10 h-14 bg-gray-200 rounded flex items-center justify-center">
-                  📖
-                </div>
-              )}
+              <BookCover url={book.coverUrl} title={book.title} thumbnail />
               <div>
                 <p className="font-medium">{book.title}</p>
                 {groupBySeries && book.seriesName && (
                   <p className="text-sm text-gray-500">
-                    {book.seriesName} #{book.seriesNumber}
+                    {book.seriesName}{book.seriesNumber != null ? ` #${book.seriesNumber}` : ''}
                   </p>
                 )}
               </div>

@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/db'
 import { CreateBookInput, UpdateBookInput } from './validation'
 import { normalizeToIsbn13 } from './isbn'
+import { findBookCover } from '@/lib/metadata/covers'
 
-export async function createBook(userId: string, input: CreateBookInput) {
+export async function createBook(userId: string, input: CreateBookInput, autoCovers = true) {
   const isbn13 = input.isbn13 ? normalizeToIsbn13(input.isbn13) : null
 
   if (isbn13) {
@@ -30,9 +31,11 @@ export async function createBook(userId: string, input: CreateBookInput) {
       isbn10: input.isbn10,
       publisher: input.publisher,
       publicationYear: input.publicationYear,
-      coverUrl: input.coverUrl,
+      coverUrl: input.coverUrl || (!input.coverLocked && autoCovers ? await findBookCover(input.title, input.authorName, isbn13) : null),
+      coverLocked: input.coverLocked ?? false,
       seriesName: input.seriesName,
       seriesNumber: input.seriesNumber,
+      readingStatus: input.readingStatus ?? 'UNKNOWN',
       tags: input.tags,
       genres: input.genres,
       source: input.source,
@@ -73,6 +76,12 @@ export async function updateBook(
     }
   }
 
+  // Validate work ownership before any author mutation.
+  if (input.workId) {
+    const work = await prisma.work.findFirst({ where: { id: input.workId, userId }, select: { id: true } })
+    if (!work) return { success: false, error: 'WORK_NOT_FOUND' }
+  }
+
   let authorId = existing.authorId
   if (input.authorName) {
     const author = await prisma.author.upsert({
@@ -87,7 +96,7 @@ export async function updateBook(
 
   const book = await prisma.book.update({
     where: { id: bookId },
-    data: { ...bookData, authorId, updatedAt: new Date() },
+    data: { ...bookData, ...('coverUrl' in input ? { coverLocked: true } : {}), authorId, updatedAt: new Date() },
     include: { author: true },
   })
 
