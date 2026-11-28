@@ -6,15 +6,16 @@ import { Prisma } from '@prisma/client';
 import { backupSchema, type Backup } from './validation';
 import { randomUUID } from 'node:crypto';
 
-export async function exportBackup(userId: string): Promise<Backup> {
-  return prisma.$transaction(async tx => {
+export async function exportBackup(userId: string, client?: Prisma.TransactionClient): Promise<Backup> {
+  const read = async (tx: Prisma.TransactionClient): Promise<Backup> => {
     const [authors, works, books, series, entries, contents, sessions, logs, imports] = await Promise.all([
       tx.author.findMany({ where: { userId } }), tx.work.findMany({ where: { userId } }), tx.book.findMany({ where: { userId } }), tx.series.findMany({ where: { userId } }),
       tx.seriesEntry.findMany({ where: { series: { userId } } }), tx.bookContent.findMany({ where: { book: { userId } } }), tx.readingSession.findMany({ where: { book: { userId } } }), tx.readingLog.findMany({ where: { session: { book: { userId } } } }), tx.collectionImport.findMany({ where: { userId } }),
     ]);
     // Parsing deliberately excludes account IDs, credentials and any unknown fields.
     return backupSchema.parse(JSON.parse(JSON.stringify({ format: 'tome-tracker-backup', version: 1, exportedAt: new Date().toISOString(), authors, works, books, series, entries, contents, sessions, logs, imports })));
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30000 });
+  };
+  return client ? read(client) : prisma.$transaction(read, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30000 });
 }
 export class NonemptyLibraryError extends Error {}
 export async function restoreBackup(userId: string, input: unknown) {

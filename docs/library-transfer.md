@@ -1,0 +1,13 @@
+# Full-library transfer into an existing legacy account
+
+`lib/backup/transfer.ts` provides an administrative preview/apply workflow for moving a validated full backup into an online account that already has legacy books but no modern catalog or reading graph. It is deliberately not a general synchronization API and is not exposed as a public HTTP endpoint.
+
+The operator first exports both libraries with `exportBackup`, confirms the destination account and reviews explicit one-to-one physical-copy matches. `previewLibraryTransfer` returns source/target fingerprints, expected counts, and metadata differences. Identical ISBNs or possible duplicate titles cannot silently become additional copies. Conflicting known ISBNs or authors block reuse. Existing modern catalog, import or reading data requires a separately reviewed graph merge and is refused here.
+
+`applyLibraryTransfer` requires the reviewed destination fingerprint. Reused copies retain their online IDs, scanned provenance, and existing ISBN/publisher information when those fields are unknown locally. Local reading labels, original publication year, selected cover and series metadata require explicit approval when they differ from online values. Locked online covers are preserved when the local cover is unlocked. Tags and genres are unioned. Existing accounts, passwords and unrelated users are never copied or modified. An optional expected email guards against a changed destination identity.
+
+A serializable transaction creates the source graph using new account-scoped IDs, retaining confirmed order, omnibus contents, work metadata, reading sessions and logs. Series-management and ownership-review decisions are remapped with the existing backup helpers. Every copied book, work, series, entry, ownership link, session, log and decision report is checked before commit. Failure rolls back the transaction. Bulk inserts keep database round trips low.
+
+A `tome:library-transfer` receipt records the source fingerprint and reconciliation counts. Repeating the same snapshot is a no-op, even if the user subsequently corrects online metadata. Changed snapshots require a new reviewed plan; this helper never silently replaces an already transferred catalog.
+
+Tests cover explicit match approval, private account identity and credential preservation, stale destinations, known ISBN conflicts, existing modern graphs, covers and reading-history preservation, remapped shelf/rejection decisions, hash stability, no-op reruns and competing transfers. Rehearse the actual backup in an isolated local database before applying a production transfer. Credentials and private snapshots must remain in ignored files, never source control.
