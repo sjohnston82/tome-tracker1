@@ -60,7 +60,9 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx prisma migrate deploy
-      - run: npx vitest run __tests__/database
+      # Files share one Postgres instance. Keep explicit in-file concurrency tests,
+      # but avoid unrelated serializable transactions exhausting each other's retries.
+      - run: npx vitest run __tests__/database --no-file-parallelism
       - name: Start disposable test application
         run: |
           npm run dev -- --hostname 127.0.0.1 > /tmp/tome-dev.log 2>&1 &

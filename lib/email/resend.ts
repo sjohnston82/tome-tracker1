@@ -1,24 +1,20 @@
 import { Resend } from "resend";
-
-const getResend = () => {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error("RESEND_API_KEY is not set");
-  }
-  return new Resend(apiKey);
-};
+import { getPasswordResetEmailConfig } from './config';
 
 export async function sendPasswordResetEmail(
   email: string,
   resetUrl: string
 ): Promise<boolean> {
   try {
-    const resend = getResend();
+    const config = getPasswordResetEmailConfig();
+    if (!config) return false;
+    const resend = new Resend(config.apiKey);
 
-    await resend.emails.send({
-      from: "Tome Tracker <noreply@yourdomain.com>",
+    const { data, error } = await resend.emails.send({
+      from: `Tome Tracker <${config.from}>`,
       to: email,
       subject: "Reset your password",
+      text: `Reset your Tome Tracker password: ${resetUrl}\nThis link expires in 1 hour. If you did not request this, ignore this email.`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -40,9 +36,14 @@ export async function sendPasswordResetEmail(
         </html>
       `,
     });
+    if (error || !data?.id) {
+      console.error('Password reset email was not accepted by the email provider');
+      return false;
+    }
     return true;
-  } catch (error) {
-    console.error("Failed to send email:", error);
+  } catch {
+    // Provider errors may contain recipients, API keys, or the reset URL.
+    console.error("Password reset email delivery failed");
     return false;
   }
 }
